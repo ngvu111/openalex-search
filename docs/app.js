@@ -56,6 +56,40 @@ function abstractFromInvertedIndex(obj) {
   return positions.join(' ');
 }
 
+// Return a list of candidate ISSN keys (ISSN-L first, then any raw ISSNs) to try
+function getIssnKeys(w) {
+  const keys = new Set();
+
+  const pl = w?.primary_location?.source;
+  const bo = w?.best_oa_location?.source;
+
+  // Preferred: ISSN-L from primary location or best OA location
+  [pl?.issn_l, bo?.issn_l].filter(Boolean).forEach(x => keys.add(String(x).trim()));
+
+  // Optional: if an 'issn' array exists, try those too (lets you map by ISSN as well)
+  [pl?.issn, bo?.issn].forEach(arr => {
+    if (Array.isArray(arr)) {
+      arr.forEach(i => keys.add(String(i).trim()));
+    }
+  });
+
+  return [...keys];
+}
+
+// Use any of the candidate keys against JUFO/AJG maps and assemble badges
+function venueBadgesByKeys(issnKeys) {
+  const out = [];
+  if (jufoMap) {
+    const hit = issnKeys.find(k => jufoMap[k]);
+    if (hit) out.push(badge(`JUFO ${jufoMap[hit]}`));
+  }
+  if (ajgMap) {
+    const hit = issnKeys.find(k => ajgMap[k]);
+    if (hit) out.push(badge(`AJG ${ajgMap[hit]}`));
+  }
+  return out.join(' ');
+}
+
 function venueBadges(issnL) {
   const out = [];
   if (jufoMap && jufoMap[issnL]) out.push(badge(`JUFO ${jufoMap[issnL]}`));
@@ -100,9 +134,10 @@ function renderItem(w) {
   const hasFull = !!w.has_fulltext;
 
   const venue = w.primary_location?.source?.display_name || '—';
-  const issnL = w.primary_location?.source?.issn_l || null;
   const type  = w.primary_location?.source?.type || '—';
 
+  const issnKeys = getIssnKeys(w);
+  
   const authors = Array.isArray(w.authorships)
     ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
     : [];
