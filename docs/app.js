@@ -1,22 +1,22 @@
 const API_BASE = "https://api.openalex.org/works";
-const API_PUBLISHERS = "https://api.openalex.org/publishers";
 const API_KEY = (typeof window.OPENALEX_API_KEY === 'string' && window.OPENALEX_API_KEY.trim())
   ? window.OPENALEX_API_KEY.trim()
   : null;
 
+// Elements
 const el = (id) => document.getElementById(id);
-// form controls
 const form = el('search-form');
 const qIn = el('q');
 const yearIn = el('year');
-const oaIn = el('oa');
+
+const sourceTypeIn = el('sourceType');
 const perIn = el('per');
 const sortIn = el('sort');
-const sourceTypeIn = el('sourceType');
-const publisherIn = el('publisher');
+
+const oaIn = el('oa');
 const hasFulltextIn = el('hasFulltext');
 const hasAbstractIn = el('hasAbstract');
-// output
+
 const meta = el('meta');
 const results = el('results');
 const pager = el('pager');
@@ -24,12 +24,13 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
-let page = 1;
-let cachedPublisherId = null;
-// optional sidecar rank maps
-let jufoMap = null;   // { ISSN-L: "0|1|2|3" }
-let ajgMap  = null;   // { ISSN-L: "4*|4|3|2|1" }
+// Optional sidecar rank maps (ISSN-L → level/grade)
+let jufoMap = null;   // e.g., { "0028-0836": "3", ... }
+let ajgMap  = null;   // e.g., { "0028-0836": "4*", ... }
 
+let page = 1;
+
+// Try to load sidecar rank maps if present
 (async function maybeLoadRanks() {
   try {
     const [jufoRes, ajgRes] = await Promise.allSettled([
@@ -44,44 +45,37 @@ let ajgMap  = null;   // { ISSN-L: "4*|4|3|2|1" }
 function escapeHTML(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+function badge(text, cls="") { return `<span class="badge ${cls}">${escapeHTML(text)}</span>`; }
+function pick(val, fallback) { return (val !== undefined && val !== null) ? val : fallback; }
 
-function badge(text, cls="") {
-  return `<span class="badge ${cls}">${escapeHTML(text)}</span>`;
-}
-
-// reconstructs plaintext from abstract_inverted_index
+// Reconstruct plaintext abstract from inverted index
 function abstractFromInvertedIndex(obj) {
   if (!obj || typeof obj !== 'object') return null;
   const positions = [];
-  for (const [word, idxs] of Object.entries(obj)) {
-    idxs.forEach(i => positions[i] = word);
-  }
+  for (const [word, idxs] of Object.entries(obj)) idxs.forEach(i => positions[i] = word);
   return positions.join(' ');
 }
 
-function pick(val, fallback) { return (val !== undefined && val !== null) ? val : fallback; }
+function venueBadges(issnL) {
+  const out = [];
+  if (jufoMap && jufoMap[issnL]) out.push(badge(`JUFO ${jufoMap[issnL]}`));
+  if (ajgMap  && ajgMap[issnL])  out.push(badge(`AJG ${ajgMap[issnL]}`));
+  return out.join(' ');
+}
 
-function makeURL({ q, year, oa, per, sort, page, sourceType, publisherId, hasFulltext, hasAbs }) {
+// Build URL with filters
+function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page }) {
   const params = new URLSearchParams();
-
   if (q) params.set('search', q);
 
   const filters = [];
   if (year) filters.push(`publication_year:${year}`);
+  if (sourceType) filters.push(`primary_location.source.type:${sourceType}`);
   if (oa) filters.push('is_oa:true');
   if (hasFulltext) filters.push('has_fulltext:true');
   if (hasAbs) filters.push('has_abstract:true');
-
-  // Source type filter (on primary location)
-  // e.g., primary_location.source.type:journal|repository|conference
-  if (sourceType) filters.push(`primary_location.source.type:${sourceType}`);
-
-  // Publisher filter via host organization (OpenAlex Publisher ID)
-  if (publisherId) filters.push(`primary_location.source.host_organization:${publisherId}`);
-
   if (filters.length) params.set('filter', filters.join(','));
 
-  // Select only what we need for list view (nested fields allowed)
   params.set('select', [
     'id','doi','display_name','publication_year','cited_by_count',
     'open_access','has_fulltext','has_abstract',
@@ -95,32 +89,8 @@ function makeURL({ q, year, oa, per, sort, page, sourceType, publisherId, hasFul
   if (sort) params.set('sort', sort);
   params.set('page', String(page || 1));
   if (API_KEY) params.set('api_key', API_KEY);
+
   return `${API_BASE}?${params.toString()}`;
-}
-
-async function resolvePublisherId(input) {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-
-  // If user typed an OpenAlex Publisher ID (starts with P), use it as-is
-  if (/^P\d+$/i.test(trimmed)) return `https://openalex.org/${trimmed.toUpperCase()}`;
-
-  // Otherwise, search by name (take the first match)
-  const sp = new URLSearchParams({ search: trimmed, select: 'id,display_name', per_page: '1' });
-  if (API_KEY) sp.set('api_key', API_KEY);
-  const url = `${API_PUBLISHERS}?${sp.toString()}`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`Publisher lookup failed (${r.status})`);
-  const data = await r.json();
-  const hit = (data?.results && data.results[0]) || null;
-  return hit?.id || null;
-}
-
-function venueBadges(issnL) {
-  const out = [];
-  if (jufoMap && jufoMap[issnL]) out.push(badge(`JUFO ${jufoMap[issnL]}`));
-  if (ajgMap  && ajgMap[issnL])  out.push(badge(`AJG ${ajgMap[issnL]}`));
-  return out.join(' ');
 }
 
 function renderItem(w) {
@@ -150,8 +120,8 @@ function renderItem(w) {
       <div class="kv">
         <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}
         <br/><strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)}) ${issnL ? venueBadges(issnL) : ''}
-        <br/>${w.id ? `<a href="${w.id}" target="_blank" rel="noreferrer">OpenAlex</a>` : ''}
-        ${w.doi ? ` • <a href="${w.doi}" target="_blank" rel="noreferrer">DOI</a>` : ''}
+        <br/>${w.id ? `<a href="${w.id}" target="_blank" rel="noopener">OpenAlex</a>` : ''}
+        ${w.doi ? ` • <a href="${w.doi}" target="_blank" rel="noopener">DOI</a>` : ''}
       </div>
       <details class="kv" data-abs>
         <summary>Abstract</summary>
@@ -166,21 +136,15 @@ async function doSearch({ freshPage=false } = {}) {
 
   const q = qIn.value.trim();
   const year = yearIn.value.trim();
-  const oa = oaIn.checked;
+
+  const sourceType = sourceTypeIn.value || '';
   const per = Number(perIn.value);
   const sort = sortIn.value;
-  const sourceType = sourceTypeIn.value || '';
+
+  const oa = oaIn.checked;
   const hasFulltext = hasFulltextIn.checked;
   const hasAbs = hasAbstractIn.checked;
 
-  // resolve publisher only when changed
-  let publisherId = cachedPublisherId;
-  const pubInput = publisherIn.value.trim();
-  if (pubInput && !cachedPublisherId?.toLowerCase().includes(pubInput.toLowerCase())) {
-    try { publisherId = await resolvePublisherId(pubInput); }
-    catch (e) { console.warn(e); publisherId = null; }
-    cachedPublisherId = publisherId;
-  }
   if (!q) {
     meta.textContent = 'Type a query to search.';
     results.innerHTML = '';
@@ -188,7 +152,7 @@ async function doSearch({ freshPage=false } = {}) {
     return;
   }
 
-  const url = makeURL({ q, year, oa, per, sort, page, sourceType, publisherId, hasFulltext, hasAbs });
+  const url = makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page });
   meta.innerHTML = `Searching<span class="spinner"></span>`;
   results.innerHTML = '';
 
@@ -200,14 +164,16 @@ async function doSearch({ freshPage=false } = {}) {
     const count = data?.meta?.count ?? 0;
     const items = Array.isArray(data?.results) ? data.results : [];
     meta.textContent = `Found ${count.toLocaleString()} works • Showing ${items.length} on page ${page}`;
+
     if (!items.length) {
       results.innerHTML = `<div class="muted">No results.</div>`;
       pager.classList.add('hidden');
       return;
     }
+
     results.innerHTML = items.map(renderItem).join('');
 
-    // set up lazy abstract loading
+    // Lazy abstracts
     results.querySelectorAll('details[data-abs]').forEach(det => {
       det.addEventListener('toggle', async () => {
         if (!det.open) return;
@@ -215,7 +181,7 @@ async function doSearch({ freshPage=false } = {}) {
         const node = det.closest('.item');
         const workId = node?.getAttribute('data-id');
         if (!workId) return;
-        // fetch single work with abstract only on demand
+
         const sp = new URLSearchParams({ select: 'abstract_inverted_index' });
         if (API_KEY) sp.set('api_key', API_KEY);
         const rr = await fetch(`${API_BASE}/${encodeURIComponent(workId)}?${sp.toString()}`);
@@ -226,7 +192,7 @@ async function doSearch({ freshPage=false } = {}) {
       }, { once: true });
     });
 
-    // simple pager
+    // Pager
     const totalPages = Math.ceil(count / per);
     pageStatus.textContent = `Page ${page} / ${Math.max(totalPages, 1)}`;
     prevBtn.disabled = page <= 1;
@@ -240,23 +206,25 @@ async function doSearch({ freshPage=false } = {}) {
 }
 
 form.addEventListener('submit', (e) => { e.preventDefault(); doSearch({ freshPage: true }); });
+
 el('clear').addEventListener('click', () => {
   qIn.value = '';
   yearIn.value = '';
-  oaIn.checked = false;
   sourceTypeIn.value = '';
-  publisherIn.value = '';
+  perIn.value = '20';
+  sortIn.value = 'cited_by_count:desc';
+  oaIn.checked = false;
   hasFulltextIn.checked = false;
   hasAbstractIn.checked = false;
-  cachedPublisherId = null;
+
   results.innerHTML = '';
   meta.textContent = '';
   pager.classList.add('hidden');
 });
 
 prevBtn.addEventListener('click', () => { if (page > 1) { page -= 1; doSearch(); } });
-nextBtn.addEventListener('click', () => { page += 1; doSearch(); });
+nextBtn.addEventListener('click', () => { page += 1; doSearch(); } );
 
-// starter query (optional)
+// Starter query (optional)
 qIn.value = 'humanitarian logistics';
 doSearch({ freshPage: true });
