@@ -5,37 +5,28 @@
   <title>OpenAlex Search</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="container">
     <h1>OpenAlex Search</h1>
-    <p class="muted">Search scholarly works; filter by year, OA, source type, publisher; show authors & abstracts.</p>
+    <p class="muted">Search scholarly works; filter by source type, results per page, sort; then apply OA/fulltext/abstract.</p>
   </header>
 
   <main class="container">
     <form id="search-form" class="card">
+      <!-- Query -->
       <div class="row">
-        <label for="q">Search terms</label>
+        <label for="q">Query</label>
         <input id="q" name="q" type="search"
                placeholder="e.g., humanitarian logistics refugee partnerships" required />
       </div>
 
-      <div class="row two">
-        <div>
-          <label for="year">Year (single or range)</label>
-          <input id="year" name="year" type="text" placeholder="2020-2026 or 2024" />
-        </div>
-        <div class="checkbox">
-          <label><input id="oa" type="checkbox" /> Open Access only</label>
-        </div>
-      </div>
-
+      <!-- ▼▼ All drop-downs FIRST ▼▼ -->
       <div class="row two">
         <div>
           <label for="sourceType">Source type</label>
           <select id="sourceType">
-            
             <option value="">Any</option>
             <option value="journal">Journal</option>
             <option value="repository">Repository</option>
@@ -43,26 +34,9 @@
             <option value="book series">Book series</option>
             <option value="ebook platform">eBook platform</option>
             <option value="other">Other</option>
-
           </select>
         </div>
-        <div>
-          <label for="publisher">Publisher (name or OpenAlex ID)</label>
-          <input id="publisher" type="text" placeholder="e.g., Elsevier or P4310320990" />
-          <small class="muted">We resolve names via /publishers?search=…</small>
-        </div>
-      </div>
 
-      <div class="row two">
-        <div class="checkbox">
-          <label><input id="hasFulltext" type="checkbox" /> Has fulltext</label>
-        </div>
-        <div class="checkbox">
-          <label><input id="hasAbstract" type="checkbox" /> Has abstract</label>
-        </div>
-      </div>
-
-      <div class="row two">
         <div>
           <label for="per">Results per page</label>
           <select id="per">
@@ -71,6 +45,9 @@
             <option value="100">100</option>
           </select>
         </div>
+      </div>
+
+      <div class="row two">
         <div>
           <label for="sort">Sort by</label>
           <select id="sort">
@@ -79,6 +56,31 @@
             <option value="publication_date:asc">Oldest</option>
           </select>
         </div>
+        <div></div><!-- spacer to keep grid balanced -->
+      </div>
+      <!-- ▲▲ All drop-downs FIRST ▲▲ -->
+
+      <!-- ▼▼ Then all checkboxes ▼▼ -->
+      <div class="row two">
+        <div class="checkbox">
+          <label><input id="oa" type="checkbox" /> Open Access only</label>
+        </div>
+        <div class="checkbox">
+          <label><input id="hasFulltext" type="checkbox" /> Has fulltext</label>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="checkbox">
+          <label><input id="hasAbstract" type="checkbox" /> Has abstract</label>
+        </div>
+      </div>
+      <!-- ▲▲ Then all checkboxes ▲▲ -->
+
+      <!-- Year (text/range) comes after the checkboxes -->
+      <div class="row">
+        <label for="year">Year (single or range)</label>
+        <input id="year" name="year" type="text" placeholder="2020-2026 or 2024" />
       </div>
 
       <div class="actions">
@@ -98,12 +100,11 @@
   </main>
 
   <footer class="container muted small">
-    Data via <a href="https://openalex.org" target="_blank" rel="noreferrer">OpenAlex</a> (CC0).
+    Data via <a href="https://openalex.org" target="_blank" rel="noopener">OpenAlex</a> (CC0).
   </footer>
 
-  <!-- Config (your API key) -->
-  <script src="./config.js"></script>
-  <!-- App -->
-  <script src="./app.js"></script>
+  <!-- Config first, then app -->
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
