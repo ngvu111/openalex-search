@@ -80,7 +80,8 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
     'id','doi','display_name','publication_year','cited_by_count',
     'open_access','has_fulltext','abstract_inverted_index',
     'authorships',
-    'primary_location'
+    'primary_location',
+    'best_oa_location' 
   ].join(','));
 
   params.set('per_page', String(per || 20));
