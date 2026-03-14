@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>OpenAlex Search</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="container">
+    <h1>OpenAlex Search</h1>
+    <p class="muted">Search scholarly works and filter by year or open access.</p>
+  </header>
+
+  <main class="container">
+    <form id="search-form" class="card">
+      <div class="row">
+        <label for="q">Query</label>
+        <input id="q" name="q" type="search" placeholder="e.g., humanitarian logistics refugee partnerships" required />
+      </div>
+
+      <div class="row two">
+        <div>
+          <label for="year">Year (range or single)</label>
+          <input id="year" name="year" type="text" placeholder="2020-2026 or 2024" />
+        </div>
+        <div class="checkbox">
+          <label><input id="oa" type="checkbox" /> Open Access only</label>
+        </div>
+      </div>
+
+      <div class="row two">
+        <div>
+          <label for="per">Results per page</label>
+          <select id="per">
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div>
+          <label for="sort">Sort by</label>
+          <select id="sort">
+            <option value="cited_by_count:desc" selected>Most cited</option>
+            <option value="publication_date:desc">Newest</option>
+            <option value="publication_date:asc">Oldest</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn">Search</button>
+        <button type="button" id="clear" class="btn secondary">Clear</button>
+      </div>
+    </form>
+
+    <section class="meta" id="meta"></section>
+
+    <section id="results" class="list"></section>
+
+    <nav id="pager" class="pager hidden">
+      <button id="prev" class="btn secondary">◀ Prev</button>
+      <span id="page-status" class="muted"></span>
+      <button id="next" class="btn secondary">Next ▶</button>
+    </nav>
+  </main>
+
+  <footer class="container muted small">
+    Data via <a href="https://openalex.org" target="_blank" rel="noreferrer">OpenAlex</a>. All data is CC0.
+  </footer>
+
+  <!-- Config (your API key) -->
+  <script src="./config.js"></script>
+  <!-- App -->
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
