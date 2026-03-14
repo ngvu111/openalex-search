@@ -97,7 +97,6 @@ function renderItem(w) {
   const cites = pick(w.cited_by_count, 0);
   const isOA = !!w.open_access?.is_oa;
   const hasFull = !!w.has_fulltext;
-  const venue = w.primary_location?.source?.display_name || '—';
   const issnL = w.primary_location?.source?.issn_l || null;
   const type = w.primary_location?.source?.type || '—';
 
