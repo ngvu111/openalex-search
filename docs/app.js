@@ -136,14 +136,7 @@ function renderItem(w) {
   const venue = w.primary_location?.source?.display_name || '—';
   const type  = w.primary_location?.source?.type || '—';
 
-  
-  
-const issnL =
-    w.primary_location?.source?.issn_l ??
-    w.best_oa_location?.source?.issn_l ??
-    null;
-
-
+  const issnKeys = getIssnKeys(w);
   
   const authors = Array.isArray(w.authorships)
     ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
