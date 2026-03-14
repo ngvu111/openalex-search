@@ -93,15 +93,17 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
 
 function renderItem(w) {
   const title = w.display_name || '(untitled)';
-  const year = pick(w.publication_year, 'n/a');
-  const cites = pick(w.cited_by_count, 0);
-  const isOA = !!w.open_access?.is_oa;
+  const year  = w.publication_year ?? 'n/a';
+  const cites = w.cited_by_count ?? 0;
+  const isOA  = !!w.open_access?.is_oa;
   const hasFull = !!w.has_fulltext;
+
+  const venue = w.primary_location?.source?.display_name || '—';
   const issnL = w.primary_location?.source?.issn_l || null;
-  const type = w.primary_location?.source?.type || '—';
+  const type  = w.primary_location?.source?.type || '—';
 
   const authors = Array.isArray(w.authorships)
-    ? w.authorships.map(a => corresponding_author_ids).filter(Boolean).slice(0, 6)
+    ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
     : [];
 
   return `
@@ -117,8 +119,8 @@ function renderItem(w) {
       <div class="kv">
         <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}
         <br/><strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)}) ${issnL ? venueBadges(issnL) : ''}
-        <br/>${w.id ? `<a href="${w.id}" target="_blank" rel="noopener">OpenAlex</a>` : ''}
-        ${w.doi ? ` • <a href="${w.doi}" target="_blank" rel="noopener">DOI</a>` : ''}
+        <br/>${w.id  ? `${w.id}OpenAlex</a>` : ''}
+        ${w.doi ? ` • ${w.doi}DOI</a>` : ''}
       </div>
       <details class="kv" data-abs>
         <summary>Abstract</summary>
