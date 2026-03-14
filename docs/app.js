@@ -105,7 +105,9 @@ function renderItem(w) {
   const authors = Array.isArray(w.authorships)
     ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
     : [];
-
+  console.debug('ISSN-L', w.primary_location?.source?.issn_l);
+console.debug('JUFO hit?', !!(jufoMap && jufoMap[w.primary_location?.source?.issn_l || '']));
+console.debug('AJG hit?',  !!(ajgMap  && ajgMap [w.primary_location?.source?.issn_l || '']));
   return `
     <article class="item" data-id="${w.id}">
       <h3>${escapeHTML(title)}
