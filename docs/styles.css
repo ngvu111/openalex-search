@@ -10,7 +10,7 @@
   --warn: #eab308;
 }
 
-@media (prefers-color-scheme: light) {
+@media (prefers-color-scheme: dark) {
   :root {
     --bg: #f7f7fb;
     --card: #ffffff;
@@ -79,61 +79,3 @@ input[type="search"], input[type="text"], select {
   content: '…'; display: inline-block; animation: pulse 1s infinite steps(2, end);
 }
 @keyframes pulse { 50% { opacity: .2; } }
-
-/* ===== Dark selects: black background + white text ===== */
-
-/* Target just your three selects */
-#sourceType, #per, #sort {
-  /* Remove native styling so our colors take effect */
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-
-  /* Colors */
-  background-color: #000;
-  color: #fff;
-
-  /* Borders & sizing (adjust to taste) */
-  border: 1px solid var(--border, #2a2e39);
-  border-radius: 10px;
-  padding: .6rem 2.25rem .6rem .75rem; /* extra right space for the arrow */
-  line-height: 1.2;
-
-  /* Make the dropdown arrow visible on dark backgrounds (SVG data URI) */
-  background-image:
-    url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='white'>\
-<path d='M7 10l5 5 5-5z'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right .75rem center;
-  background-size: 12px 12px;
-}
-
-/* Hover & focus states */
-#sourceType:hover, #per:hover, #sort:hover {
-  border-color: #fff;
-}
-#sourceType:focus, #per:focus, #sort:focus {
-  outline: 2px solid #4f46e5; /* or your --primary */
-  outline-offset: 1px;
-}
-
-/* The options inside the opened list */
-#sourceType option,
-#per option,
-#sort option,
-#sourceType optgroup,
-#per optgroup,
-#sort optgroup {
-  background-color: #000;
-  color: #fff;
-}
-
-/* Old IE/Edge Legacy (harmless elsewhere): hide native arrow */
-select::-ms-expand { display: none; }
-
-/* Optional: make scrollbars dark in supporting UAs */
-#sourceType, #per, #sort {
-  color-scheme: dark;
-}
-``
