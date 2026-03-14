@@ -73,7 +73,7 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   if (sourceType) filters.push(`primary_location.source.type:${sourceType}`);
   if (oa) filters.push('is_oa:true');
   if (hasFulltext) filters.push('has_fulltext:true');
-  if (hasAbs) filters.push('abstract_inverted_index:true');
+  if (hasAbs) filters.push('has_abstract:true');
   if (filters.length) params.set('filter', filters.join(','));
 
   params.set('select', [
