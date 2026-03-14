@@ -137,7 +137,12 @@ function renderItem(w) {
   const type  = w.primary_location?.source?.type || '—';
 
   
-  const issnKeys = getIssnKeys(w);
+  
+const issnL =
+    w.primary_location?.source?.issn_l ??
+    w.best_oa_location?.source?.issn_l ??
+    null;
+
 
   
   const authors = Array.isArray(w.authorships)
