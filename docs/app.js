@@ -104,7 +104,7 @@ function renderItem(w) {
   const type = w.primary_location?.source?.type || '—';
 
   const authors = Array.isArray(w.authorships)
-    ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
+    ? w.authorships.map(a => corresponding_author_ids).filter(Boolean).slice(0, 6)
     : [];
 
   return `
