@@ -78,7 +78,7 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
 
   params.set('select', [
     'id','doi','display_name','publication_year','cited_by_count',
-    'open_access','has_fulltext','has_abstract',
+    'open_access','has_fulltext','abstract_inverted_index',
     'authorships.author.display_name',
     'primary_location.source.display_name',
     'primary_location.source.issn_l',
