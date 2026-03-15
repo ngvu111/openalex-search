@@ -237,8 +237,6 @@ function renderItem(w) {
     return escapeAttr('https://doi.org/' + s.replace(/^doi:\s*/i, ''));
   })();
 
-  const doiHref = w.doi ? escapeAttr(w.doi) : null;
-
 
   // link with readable label "DOI"
   
