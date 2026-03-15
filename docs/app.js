@@ -119,25 +119,7 @@ const badges = [
   const doiLink = w.doi ? ` • ${escapeAttr(w.doi)}DOI</a>` : "";
 
 
-  return `
-    <article class="item" data-id="${escapeAttr(w.id || '')}">
-      <h3>${escapeHTML(title)}
-        <span class="badges">${badges}</span>
-      </h3>
-      <div class="kv">
-        <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}<br/>
-        <strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)})<br/>
-        ${openalexLink}${doiLink}
-      </div>
-      <details class="kv" data-abs>
-        <summary>Abstract</summary>
-        <div class="muted">Fetching…</div>
-      </details>
-    </article>
-  `;
-}
-
-
+ 
 async function doSearch({ freshPage = false } = {}) {
   if (freshPage) page = 1;
 
