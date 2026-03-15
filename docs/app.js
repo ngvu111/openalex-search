@@ -7,6 +7,7 @@ const API_KEY = (typeof window.OPENALEX_API_KEY === 'string' && window.OPENALEX_
 const el = (id) => document.getElementById(id);
 const form = el('search-form');
 const qIn = el('q');
+const yearIn = el('year');
 
 const sourceTypeIn = el('sourceType');
 const perIn = el('per');
@@ -23,18 +24,6 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
-
-const journalIn = document.getElementById('journal');
-
-
-const yearRange = document.getElementById('yearRange');
-const yearRangeLabel = document.getElementById('yearRangeLabel');
-const yearRangeMax = document.getElementById('yearRangeMax');
-
-
-const themeToggle = document.getElementById('themeToggle');
-let journals = [];
-
 // Reconstruct plaintext abstract from inverted index
 function abstractFromInvertedIndex(obj) {
   if (!obj || typeof obj !== 'object') return null;
@@ -43,70 +32,19 @@ function abstractFromInvertedIndex(obj) {
   return positions.join(' ');
 }
 
-// Theme initialization: respect saved choice, else system preference applies
-(function initTheme() {
-  const saved = localStorage.getItem('theme'); // 'light' | 'dark' | null
-  if (saved === 'light' || saved === 'dark') {
-    document.documentElement.setAttribute('data-theme', saved);
-    themeToggle.checked = (saved === 'dark');
-  } else {
-    themeToggle.checked = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }
-})();
-themeToggle.addEventListener('change', () => {
-  const next = themeToggle.checked ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
-});
-
 // Build URL with filters
 function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page }) {
   const params = new URLSearchParams();
   if (q) params.set('search', q);
 
   const filters = [];
- 
-
-/ 👇 Year range: from the slider value to the latest year (Dec 31)
-  const latest = new Date().getFullYear(); // or 2026 if you want a fixed cap
-  const from = `${yearRange.value}-01-01`;
-  const to   = `${latest}-12-31`;
-  filters.push(`from_publication_date:${from}`, `to_publication_date:${to}`);
-
-
+  if (year) filters.push(`publication_year:${year}`);
   if (sourceType) filters.push(`primary_location.source.type:${sourceType}`);
   if (oa) filters.push('is_oa:true');
   if (hasFulltext) filters.push('has_fulltext:true');
   if (hasAbs) filters.push('has_abstract:true');
   if (filters.length) params.set('filter', filters.join(','));
 
-  const API_SOURCES = 'https://api.openalex.org/sources';
-
-// Load ~200 journals sorted by works_count (adjust as needed)
-async function loadJournals() {
-  const sp = new URLSearchParams({
-    filter: 'type:journal',
-    per_page: '200',
-    sort: 'works_count:desc',
-    select: 'display_name,issn_l,works_count'
-  });
-  if (API_KEY) sp.set('api_key', API_KEY);
-  const url = `${API_SOURCES}?${sp.toString()}`;
-  const r = await fetch(url);
-  if (!r.ok) return;
-  const data = await r.json();
-  journals = (data.results || []).filter(j => j.issn_l && j.display_name);
-  // Populate select
-  const frag = document.createDocumentFragment();
-  journals.forEach(j => {
-    const opt = document.createElement('option');
-    opt.value = j.issn_l;
-    opt.textContent = `${j.display_name} (${j.issn_l})`;
-    frag.appendChild(opt);
-  });
-  journalIn.appendChild(frag);
-}
-  
   params.set('select', [
     'id','doi','display_name','publication_year','cited_by_count',
     'open_access','has_fulltext','abstract_inverted_index',
@@ -158,27 +96,6 @@ function renderItem(w) {
       </details>
     </article>
   `;
-}
-
-function initYearRange() {
-  // Always start from 1990
-  const MIN = 1990;
-  // Latest = current calendar year
-  const latest = new Date().getFullYear();
-
-  // Set the control bounds and default
-  yearRange.min = String(MIN);
-  yearRange.max = String(latest);
-  yearRange.value = String(latest);
-
-  // Update the labels
-  yearRangeLabel.textContent = yearRange.value;
-  yearRangeMax.textContent = String(latest);
-
-  // Keep the label in sync while dragging
-  yearRange.addEventListener('input', () => {
-    yearRangeLabel.textContent = yearRange.value;
-  });
 }
 
 async function doSearch({ freshPage=false } = {}) {
@@ -259,14 +176,7 @@ form.addEventListener('submit', (e) => { e.preventDefault(); doSearch({ freshPag
 
 el('clear').addEventListener('click', () => {
   qIn.value = '';
-  
-  
-// reset the year slider to latest
-  const latest = new Date().getFullYear(); // or 2026
-  yearRange.value = String(latest);
-  yearRangeLabel.textContent = yearRange.value;
-  yearRangeMax.textContent = String(latest);
-
+  yearIn.value = '';
   sourceTypeIn.value = '';
   perIn.value = '20';
   sortIn.value = 'cited_by_count:desc';
@@ -285,4 +195,3 @@ nextBtn.addEventListener('click', () => { page += 1; doSearch(); } );
 // Starter query (optional)
 qIn.value = 'humanitarian logistics';
 doSearch({ freshPage: true });
-
