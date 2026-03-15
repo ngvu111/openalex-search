@@ -82,28 +82,6 @@ function renderItem(w) {
     ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
     : [];
 
-  // ISSN-L for rank badges (fallback to best OA location)
-  const issnL =
-    w.primary_location?.source?.issn_l ??
-    w.best_oa_location?.source?.issn_l ??
-    null;
-
-  const badges = [
-    isOA ? badge('OA','oa') : '',
-    hasFull ? badge('Fulltext') : '',
-    badge(`Citations: ${cites}`),
-    badge(`Year: ${year}`)
-  ].filter(Boolean).join('');
-
-  const openalexLink = w.id  ? `${escapeAttr(w.id)}OpenAlex</a>` : '';
-  const doiLink      = w.doi ? ` • ${escapeAttr(w.doi)}DOI</a>` : '';
-
-  let rankBadges = '';
-  if (issnL && typeof venueBadges === 'function') {
-    rankBadges = ' ' + venueBadges(issnL);
-  } else if (typeof getIssnKeys === 'function' && typeof venueBadgesByKeys === 'function') {
-    rankBadges = ' ' + venueBadgesByKeys(getIssnKeys(w));
-  
 
   return `
     <article class="item" data-id="${escapeAttr(w.id || '')}">
