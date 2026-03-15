@@ -239,6 +239,10 @@ function renderItem(w) {
   })();
 
 
+  const doiLink = doiHref
+    ? ` • ${doiHref}${escapeHTML(doiText)}</a>`
+    : '';
+
 
   return `
     <article class="item" data-id="${escapeAttr(w.id || '')}">
