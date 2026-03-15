@@ -2,7 +2,159 @@ const API_BASE = "https://api.openalex.org/works";
 const API_KEY = (typeof window.OPENALEX_API_KEY === 'string' && window.OPENALEX_API_KEY.trim())
   ? window.OPENALEX_API_KEY.trim()
   : null;
+// ---- Journal facets: build filter, facet works, resolve names, populate dropdown ----
 
+// Read current UI and build the filter string; set excludeJournal=true to "show all journals"
+function buildFilterStringFromUI({ excludeJournal = false } = {}) {
+  const filters = [];
+
+  // Query-independent filters from your form
+  const yearIn  = document.getElementById('year');              // text box "YYYY" or "YYYY-YYYY"
+  const sourceTypeIn = document.getElementById('sourceType');
+  const oaIn    = document.getElementById('oa');
+  const hasFulltextIn = document.getElementById('hasFulltext');
+  const hasAbstractIn = document.getElementById('hasAbstract');
+  const journalSel = document.getElementById('journal');
+
+  const year = yearIn?.value?.trim();
+  if (year) {
+    // Allow "YYYY" or "YYYY-YYYY" as you used originally
+    const m = year.match(/^(\d{4})\s*-\s*(\d{4})$/);
+    if (m) {
+      const a = Math.min(+m[1], +m[2]);
+      const b = Math.max(+m[1], +m[2]);
+      filters.push(`from_publication_date:${a}-01-01`, `to_publication_date:${b}-12-31`);
+    } else if (/^\d{4}$/.test(year)) {
+      filters.push(`publication_year:${year}`);
+    }
+  }
+
+  const sourceType = sourceTypeIn?.value || '';
+  if (sourceType) filters.push(`primary_location.source.type:${sourceType}`); // nested OK in filters [1](https://guidebook.devops.uis.cam.ac.uk/howtos/development/generate-api-clients/)
+
+  if (oaIn?.checked)           filters.push('is_oa:true');
+  if (hasFulltextIn?.checked)  filters.push('has_fulltext:true');
+  if (hasAbstractIn?.checked)  filters.push('has_abstract:true');
+
+  // Journal filter (ISSN) — include only if not excluded
+  if (!excludeJournal && journalSel && journalSel.value) {
+    // Use locations.source.issn so it matches journals appearing in any location of the work
+    filters.push(`locations.source.issn:${journalSel.value}`);
+  }
+
+  return filters.join(',');
+}
+
+// Facet journals for the current filter string: returns an array of ISSNs (strings)
+async function facetJournalsForFilter(filterStr) {
+  const sp = new URLSearchParams();
+  if (filterStr) sp.set('filter', filterStr);
+  sp.set('group_by', 'locations.source.issn');
+  sp.set('per_page', '200');                 // get up to 200 journal buckets per call
+  if (API_KEY) sp.set('api_key', API_KEY);
+
+  const url = `${API_BASE}?${sp.toString()}`;
+  const r = await fetch(url);
+  if (!r.ok) return [];
+  const data = await r.json();
+  // data.group_by: [{key: "<ISSN>", count: N}, ...]
+  return (data.group_by || [])
+    .map(g => g?.key)
+    .filter(Boolean);
+}
+
+// Resolve ISSNs to names using /sources; chunk by 100 due to OR limit in filters
+async function resolveIssnNames(issns) {
+  if (!issns.length) return [];
+
+  // chunk by 100 (OR limit) [1](https://guidebook.devops.uis.cam.ac.uk/howtos/development/generate-api-clients/)
+  const chunks = [];
+  for (let i = 0; i < issns.length; i += 100) chunks.push(issns.slice(i, i + 100));
+
+  const results = [];
+  for (const chunk of chunks) {
+    const sp = new URLSearchParams();
+    sp.set('filter', `issn:${chunk.join('|')}`);               // /sources supports issn filter [2](https://github.com/diverged/openalex-openapi)
+    sp.set('select', 'display_name,issn_l,issn');
+    sp.set('per_page', String(Math.max(chunk.length, 25)));
+    if (API_KEY) sp.set('api_key', API_KEY);
+
+    const url = `https://api.openalex.org/sources?${sp.toString()}`;
+    const r = await fetch(url);
+    if (!r.ok) continue;
+    const data = await r.json();
+    for (const s of (data.results || [])) {
+      // Build a quick lookup of all known ISSNs for this source
+      const allIssns = Array.isArray(s.issn) ? s.issn : [];
+      results.push({
+        name: s.display_name || '',
+        issn_l: s.issn_l || '',
+        issns: allIssns
+      });
+    }
+  }
+
+  return results;
+}
+
+// Populate #journal with resolved names; preserve previous selection when possible
+function populateJournalDropdownResolved(issns, sourcesResolved) {
+  const sel = document.getElementById('journal');
+  if (!sel) return;
+
+  // Build a map: ISSN -> {display, issn_l}
+  const byIssn = new Map();
+  for (const src of sourcesResolved) {
+    for (const i of (src.issns || [])) {
+      if (!byIssn.has(i)) {
+        byIssn.set(i, { display: src.name || i, issn_l: src.issn_l || i });
+      }
+    }
+  }
+
+  // For ISSNs we didn't resolve (rare), fall back to showing the ISSN itself
+  const items = issns.map(i => {
+    const hit = byIssn.get(i);
+    return { keyIssn: i, name: hit?.display || i, issn_l: hit?.issn_l || i };
+  });
+
+  // Deduplicate by keyIssn (issn) and sort by name
+  const unique = Array.from(new Map(items.map(it => [it.keyIssn, it])).values())
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Preserve selection if still present
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Any journal</option>';
+
+  const frag = document.createDocumentFragment();
+  for (const j of unique) {
+    const opt = document.createElement('option');
+    // For filtering we can use the ISSN key directly with locations.source.issn
+    opt.value = j.keyIssn;
+    opt.textContent = `${j.name} (${j.keyIssn})`;
+    frag.appendChild(opt);
+  }
+  sel.appendChild(frag);
+
+  if (prev && unique.some(j => j.keyIssn === prev)) {
+    sel.value = prev;
+  }
+}
+
+// End-to-end updater: facet → resolve names → populate
+async function updateJournalFacetDropdown() {
+  // Build filters from UI but exclude the journal selection to show *all* matching journals
+  const filterStr = buildFilterStringFromUI({ excludeJournal: true });
+  const issns = await facetJournalsForFilter(filterStr);  // list of ISSNs for current query
+  if (!issns.length) {
+    // Reset to just "Any journal" if no matches
+    const sel = document.getElementById('journal');
+    if (sel) sel.innerHTML = '<option value="">Any journal</option>';
+    return;
+  }
+  const resolved = await resolveIssnNames(issns);
+  populateJournalDropdownResolved(issns, resolved);
+}
 // Elements
 const el = (id) => document.getElementById(id);
 const form = el('search-form');
@@ -170,6 +322,15 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   if (oa) filters.push('is_oa:true');
   if (hasFulltext) filters.push('has_fulltext:true');
   if (hasAbs) filters.push('has_abstract:true');
+
+
+// Journal filter from dropdown
+  const journalSel = document.getElementById('journal');
+  if (journalSel && journalSel.value) {
+    filters.push(`locations.source.issn:${journalSel.value}`); // robust across locations [1](https://guidebook.devops.uis.cam.ac.uk/howtos/development/generate-api-clients/)
+  }
+
+  
   if (filters.length) params.set('filter', filters.join(','));
 
   params.set('select', [
@@ -186,6 +347,8 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   if (API_KEY) params.set('api_key', API_KEY);
 
   return `${API_BASE}?${params.toString()}`;
+
+  
 }
 // --- HTML escaping helper (prevents XSS and broken markup) ---
 
@@ -247,10 +410,6 @@ const doiLink = doiHref
   : '';
 
 
-
-
-
-
   return `
     <article class="item" data-id="${escapeAttr(w.id || '')}">
       <h3>${escapeHTML(title)}
@@ -283,6 +442,15 @@ async function doSearch({ freshPage = false } = {}) {
   const oa = oaIn.checked;
   const hasFulltext = hasFulltextIn.checked;
   const hasAbs = hasAbstractIn.checked;
+
+  // After: const items = Array.isArray(data?.results) ? data.results : [];
+populateJournalDropdown(items);           // <- if you still have the page-based version, you can remove it
+updateJournalFacetDropdown().catch(console.warn);  // facet-based dropdown for *all* results
+
+document.getElementById('journal')?.addEventListener('change', () => {
+  doSearch({ freshPage: true });
+});
+
 
   if (!q) {
     meta.textContent = "Type a query to search.";
