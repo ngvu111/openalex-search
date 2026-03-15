@@ -33,6 +33,24 @@ const journalHelp   = el('journalHelp');
 // Persist selected journals across re-renders of the list
 let selectedJournalIds = new Set();   // values like "https://openalex.org/S123456789"
 
+
+/ Journal filter UI
+const journalFilter      = el('journalFilter');
+const journalFilterClear = el('journalFilterClear');
+
+// Cache the full, unfiltered list from group_by=journal
+// Each item: { id, name, count }
+let allJournals = [];
+
+// Debounce handle
+let journalFilterTimer = null;
+
+function norm(s) {
+  return String(s || '')
+    .normalize('NFD')                // split diacritics
+    .replace(/[\u0300-\u036f]/g, '') // strip diacritics
+    .toLowerCase();
+}
 /* ===== Theme toggle (JS) =====
    - expects this HTML inside your header:
 
@@ -197,6 +215,75 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
 }
 
 /**
+ * Render <option>s into #journalSelect from a given list and query string.
+ * - Always pins currently selected journals at the top (even if they don't match).
+ * - Preserves selection.
+ * - Shows "(count)" next to each name.
+ */
+function renderJournalOptions(list, query = '') {
+  if (!journalSelect) return;
+
+  const q = norm(query);
+  const matches = q.length >= 2
+    ? list.filter(j => norm(j.name).includes(q))
+    : list.slice(); // no filtering for <2 chars
+
+  // Selected (pin to top, sorted by name)
+  const selectedTop = [];
+  selectedJournalIds.forEach(id => {
+    const j = list.find(x => x.id === id);
+    if (j) selectedTop.push(j);
+  });
+  selectedTop.sort((a,b)=>a.name.localeCompare(b.name));
+
+  // Remove any already pinned from matches
+  const pinnedIds = new Set(selectedTop.map(j => j.id));
+  const body = matches.filter(j => !pinnedIds.has(j.id));
+
+  // Rebuild options
+  const frag = document.createDocumentFragment();
+
+  // Selected pinned section
+  if (selectedTop.length) {
+    for (const j of selectedTop) {
+      const o = document.createElement('option');
+      o.value = j.id;
+      o.textContent = `${j.name} (${j.count.toLocaleString()})`;
+      o.selected = true;
+      frag.appendChild(o);
+    }
+    // Optional visual divider (disabled, non-selectable)
+    const divider = document.createElement('option');
+    divider.disabled = true;
+    divider.textContent = '──────────';
+    frag.appendChild(divider);
+  }
+
+  // Body matches
+  for (const j of body) {
+    const o = document.createElement('option');
+    o.value = j.id;
+    o.textContent = `${j.name} (${j.count.toLocaleString()})`;
+    o.selected = selectedJournalIds.has(j.id);
+    frag.appendChild(o);
+  }
+
+  // Replace content
+  journalSelect.innerHTML = '';
+  journalSelect.appendChild(frag);
+
+  // Update helper text
+  if (journalHelp) {
+    const vis = selectedTop.length + body.length;
+    const msg = q.length >= 2
+      ? `Showing ${vis.toLocaleString()} journals matching “${query}”. Selected: ${selectedJournalIds.size}`
+      : `${list.length.toLocaleString()} journals for this query. Selected: ${selectedJournalIds.size}`;
+    journalHelp.textContent = msg;
+  }
+}
+
+
+/**
  * Get all journals matching the current query using group_by=journal.
  * Returns [{ id, name, count }]
  */
@@ -246,23 +333,15 @@ async function fetchAllJournalsForQuery({ q, year, sourceType, oa, hasFulltext, 
   return out;
 }
 
-function populateJournalSelect(list) {
-  if (!journalSelect) return;
 
-  const prev = new Set(selectedJournalIds);  // keep prior selections
-  journalSelect.innerHTML = '';
-
-  const frag = document.createDocumentFragment();
-  for (const { id, name, count } of list) {
-    if (!id) continue;
-    const opt = document.createElement('option');
-    opt.value = id;                           // OpenAlex Source ID (ISSN-L-based)
-    opt.textContent = `${name} (${count.toLocaleString()})`;
-    if (prev.has(id)) opt.selected = true;
-    frag.appendChild(opt);
-  }
-  journalSelect.appendChild(frag);
+function populateJournalSelect(list /* [{id,name,count}] */) {
+  allJournals = Array.isArray(list) ? list : [];
+  // Re-render using the current textbox value (if any)
+  const q = journalFilter ? journalFilter.value.trim() : '';
+  renderJournalOptions(allJournals, q);
 }
+``
+
 
 function wireJournalSelect() {
   if (!journalSelect) return;
@@ -517,6 +596,32 @@ if (document.readyState === "loading") {
   doSearch({ freshPage: true });
 
   wireJournalSelect();
+  wireJournalSearch();
+
+  let journalSearchWired = false;
+
+function wireJournalSearch() {
+  if (journalSearchWired) return;
+  journalSearchWired = true;
+
+  if (journalFilter) {
+    journalFilter.addEventListener('input', () => {
+      if (journalFilterTimer) clearTimeout(journalFilterTimer);
+      journalFilterTimer = setTimeout(() => {
+        renderJournalOptions(allJournals, journalFilter.value.trim());
+      }, 120); // debounce
+    });
+  }
+
+  if (journalFilterClear) {
+    journalFilterClear.addEventListener('click', () => {
+      if (!journalFilter) return;
+      journalFilter.value = '';
+      renderJournalOptions(allJournals, '');
+      journalFilter.focus();
+    });
+  }
+}
 }
 
 
