@@ -66,16 +66,34 @@
 
       <!-- 📰 Journal list (populated from OpenAlex /sources?type=journal) -->
       
+<!-- Journal filter: searchable multi-select (closed until clicked) -->
 <div class="row">
-  <div>
-    <label for="journalSearch">Journal</label>
-    <input id="journalSearch" type="search" placeholder="Search journals… (type to filter the list)" />
-    <select id="journal" multiple size="10">
-      <!-- Options are injected dynamically from facets -->
-      <option value="" disabled>— Select journals (optional) —</option>
-    </select>
+  <div id="journalCombo" class="combo">
+    <label for="journalInput">Journal</label>
+
+    <!-- Combobox input/trigger -->
+    <div id="journalBox"
+         class="combo-input"
+         role="combobox"
+         aria-haspopup="listbox"
+         aria-expanded="false"
+         aria-owns="journalList"
+         aria-controls="journalList">
+      <div id="journalChips" class="chips" aria-live="polite" aria-relevant="additions removals"></div>
+      <input id="journalInput"
+             type="text"
+             placeholder="Search journals…"
+             autocomplete="off"
+             aria-autocomplete="list"
+             aria-controls="journalList" />
+      <button id="journalToggle" type="button" class="combo-toggle" aria-label="Show/hide journals">▾</button>
+    </div>
+
+    <!-- Results list (multi-select) -->
+    <ul id="journalList" class="combo-list" role="listbox" aria-multiselectable="true"></ul>
+
     <small class="muted">
-      You can select more than one journal (Ctrl/Cmd + click). Results will match ANY selected journal.
+      Select one or more journals. Results will match <em>any</em> selected journal.
     </small>
   </div>
 </div>
