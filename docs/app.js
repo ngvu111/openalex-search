@@ -131,6 +131,9 @@ function renderItem(w) {
   const openalexLink = w.id ? `${escapeAttr(w.id)}OpenAlex</a>` : "";
   const doiLink = w.doi ? ` • ${escapeAttr(w.doi)}DOI</a>` : "";
 
+  <strong>Journal / Source:</strong>
+${escapeHTML(venue)} (${escapeHTML(type)})${rankBadges}<br/>
+  
   return `
     <article class="item" data-id="${escapeAttr(w.id || '')}">
       <h3>${escapeHTML(title)}
