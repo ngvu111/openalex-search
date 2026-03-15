@@ -227,18 +227,27 @@ function renderItem(w) {
 
   // Links
   const openalexLink = w.id ? `${escapeAttr(w.id)}OpenAlex</a>` : "";
+
   
+  // Normalize DOI to a URL and build a clickable <a> tag
+  const doiHref = (() => {
+    if (!w.doi) return null;
+    const s = String(w.doi).trim();
+    if (/^https?:\/\//i.test(s)) return escapeAttr(s);         // already URL
+    return escapeAttr('https://doi.org/' + s.replace(/^doi:\s*/i, ''));
+  })();
+
   // attribute-safe URL for href
   const doiHref = w.doi ? escapeAttr(w.doi) : null;
 
   // link with readable label "DOI"
-  const doiLink = doiHref
-  ? ` • <a href="${doiHref}" target="_blank" rel="noopener">DOI</a>`
-  : "";
-
-
-
   
+  const doiLink = doiHref
+    ? ` • ${doiHref}${escapeHTML(doiText)}</a>`
+    : '';
+
+
+
   return `
     <article class="item" data-id="${escapeAttr(w.id || '')}">
       <h3>${escapeHTML(title)}
