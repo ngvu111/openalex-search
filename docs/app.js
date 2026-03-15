@@ -625,17 +625,6 @@ function wireJournalSearch() {
 }
 
 
-// === After rendering results in doSearch() ===
-try {
-  const journals = await fetchAllJournalsForQuery({ q, year, sourceType, oa, hasFulltext, hasAbs });
-  populateJournalSelect(journals);
-  if (journalHelp) journalHelp.textContent = `${journals.length.toLocaleString()} journals found for this query`;
-} catch (e) {
-  console.warn('Journal list failed:', e);
-  if (journalSelect) journalSelect.innerHTML = '';
-  if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
-}
-
 if (!q) {
   meta.textContent = "Type a query to search.";
   results.innerHTML = "";
