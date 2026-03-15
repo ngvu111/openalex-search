@@ -24,11 +24,33 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
-function escapeHTML(s) {
-  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
-function badge(text, cls="") { return `<span class="badge ${cls}">${escapeHTML(text)}</span>`; }
-function pick(val, fallback) { return (val !== undefined && val !== null) ? val : fallback; }
+function escapeHTML(str) {
+  return String(str).replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[ch]);
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/["'&<>]/g, (ch) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[ch]);
+}
+
+function badge(text, cls = "") {
+  return `<span class="badge ${cls}">${escapeHTML(text)}</span>`;
+}
+function pick(val, fallback) {
+  return val !== undefined && val !== null ? val : fallback;
+}
 
 // Reconstruct plaintext abstract from inverted index
 function abstractFromInvertedIndex(obj) {
@@ -82,6 +104,20 @@ function renderItem(w) {
     ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
     : [];
 
+  
+const badges = [
+    isOA ? badge("OA", "oa") : "",
+    hasFull ? badge("Fulltext") : "",
+    badge(`Citations: ${cites}`),
+    badge(`Year: ${year}`),
+  ]
+    .filter(Boolean)
+    .join("");
+
+  // Links
+  const openalexLink = w.id ? `${escapeAttr(w.id)}OpenAlex</a>` : "";
+  const doiLink = w.doi ? ` • ${escapeAttr(w.doi)}DOI</a>` : "";
+
 
   return `
     <article class="item" data-id="${escapeAttr(w.id || '')}">
@@ -102,13 +138,13 @@ function renderItem(w) {
 }
 
 
-async function doSearch({ freshPage=false } = {}) {
+async function doSearch({ freshPage = false } = {}) {
   if (freshPage) page = 1;
 
   const q = qIn.value.trim();
   const year = yearIn.value.trim();
 
-  const sourceType = sourceTypeIn.value || '';
+  const sourceType = sourceTypeIn.value || "";
   const per = Number(perIn.value);
   const sort = sortIn.value;
 
@@ -117,15 +153,26 @@ async function doSearch({ freshPage=false } = {}) {
   const hasAbs = hasAbstractIn.checked;
 
   if (!q) {
-    meta.textContent = 'Type a query to search.';
-    results.innerHTML = '';
-    pager.classList.add('hidden');
+    meta.textContent = "Type a query to search.";
+    results.innerHTML = "";
+    pager.classList.add("hidden");
     return;
   }
 
-  const url = makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page });
+  const url = makeURL({
+    q,
+    year,
+    sourceType,
+    per,
+    sort,
+    oa,
+    hasFulltext,
+    hasAbs,
+    page,
+  });
+
   meta.innerHTML = `Searching<span class="spinner"></span>`;
-  results.innerHTML = '';
+  results.innerHTML = "";
 
   try {
     const r = await fetch(url);
@@ -134,34 +181,50 @@ async function doSearch({ freshPage=false } = {}) {
 
     const count = data?.meta?.count ?? 0;
     const items = Array.isArray(data?.results) ? data.results : [];
-    meta.textContent = `Found ${count.toLocaleString()} works • Showing ${items.length} on page ${page}`;
+    meta.textContent = `Found ${count.toLocaleString()} works • Showing ${
+      items.length
+    } on page ${page}`;
 
     if (!items.length) {
       results.innerHTML = `<div class="muted">No results.</div>`;
-      pager.classList.add('hidden');
+      pager.classList.add("hidden");
       return;
     }
 
-    results.innerHTML = items.map(renderItem).join('');
+    results.innerHTML = items.map(renderItem).join("");
+
 
     // Lazy abstracts
-    results.querySelectorAll('details[data-abs]').forEach(det => {
-      det.addEventListener('toggle', async () => {
-        if (!det.open) return;
-        const box = det.querySelector('div');
-        const node = det.closest('.item');
-        const workId = node?.getAttribute('data-id');
-        if (!workId) return;
+    
+results.querySelectorAll("details[data-abs]").forEach((det) => {
+      det.addEventListener(
+        "toggle",
+        async () => {
+          if (!det.open) return;
+          const box = det.querySelector("div");
+          const node = det.closest(".item");
+          const workId = node?.getAttribute("data-id");
+          if (!workId) return;
 
-        const sp = new URLSearchParams({ select: 'abstract_inverted_index' });
-        if (API_KEY) sp.set('api_key', API_KEY);
-        const rr = await fetch(`${API_BASE}/${encodeURIComponent(workId)}?${sp.toString()}`);
-        if (!rr.ok) { box.textContent = 'No abstract available.'; return; }
-        const wfull = await rr.json();
-        const abs = abstractFromInvertedIndex(wfull.abstract_inverted_index) || 'No abstract available.';
-        box.textContent = abs;
-      }, { once: true });
+          const sp = new URLSearchParams({ select: "abstract_inverted_index" });
+          if (API_KEY) sp.set("api_key", API_KEY);
+          const rr = await fetch(
+            `${API_BASE}/${encodeURIComponent(workId)}?${sp.toString()}`
+          );
+          if (!rr.ok) {
+            box.textContent = "No abstract available.";
+            return;
+          }
+          const wfull = await rr.json();
+          const abs =
+            abstractFromInvertedIndex(wfull.abstract_inverted_index) ||
+            "No abstract available.";
+          box.textContent = abs;
+        },
+        { once: true }
+      );
     });
+
 
     // Pager
     const totalPages = Math.ceil(count / per);
@@ -176,26 +239,57 @@ async function doSearch({ freshPage=false } = {}) {
   }
 }
 
-form.addEventListener('submit', (e) => { e.preventDefault(); doSearch({ freshPage: true }); });
 
-el('clear').addEventListener('click', () => {
-  qIn.value = '';
-  yearIn.value = '';
-  sourceTypeIn.value = '';
-  perIn.value = '20';
-  sortIn.value = 'cited_by_count:desc';
-  oaIn.checked = false;
-  hasFulltextIn.checked = false;
-  hasAbstractIn.checked = false;
+function wireHandlers() {
+  if (!form) {
+    console.error("search-form not found; ensure scripts use defer or run after DOM.");
+    return;
+  }
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    doSearch({ freshPage: true });
+  });
 
-  results.innerHTML = '';
-  meta.textContent = '';
-  pager.classList.add('hidden');
-});
+  const clearBtn = el("clear");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      qIn.value = "";
+      yearIn.value = "";
+      sourceTypeIn.value = "";
+      perIn.value = "20";
+      sortIn.value = "cited_by_count:desc";
+      oaIn.checked = false;
+      hasFulltextIn.checked = false;
+      hasAbstractIn.checked = false;
 
-prevBtn.addEventListener('click', () => { if (page > 1) { page -= 1; doSearch(); } });
-nextBtn.addEventListener('click', () => { page += 1; doSearch(); } );
+      results.innerHTML = "";
+      meta.textContent = "";
+      pager.classList.add("hidden");
+    });
+  }
 
-// Starter query (optional)
-qIn.value = 'humanitarian logistics';
-doSearch({ freshPage: true });
+  prevBtn.addEventListener("click", () => {
+    if (page > 1) {
+      page -= 1;
+      doSearch();
+    }
+  });
+  nextBtn.addEventListener("click", () => {
+    page += 1;
+    doSearch();
+  });
+}
+
+// If scripts aren’t loaded with defer, wait for DOM
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    wireHandlers();
+    // Starter query (optional)
+    qIn.value = "humanitarian logistics";
+    doSearch({ freshPage: true });
+  });
+} else {
+  wireHandlers();
+  qIn.value = "humanitarian logistics";
+  doSearch({ freshPage: true });
+}
