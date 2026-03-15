@@ -46,9 +46,6 @@ function norm(s) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 }
-// === Journal selector elements & state ===
-const journalSelect = el('journalSelect');
-const journalHelp   = el('journalHelp');
 
 // Persist selected journals across re-renders of the list
 let selectedJournalIds = new Set();   // values like "https://openalex.org/S123456789"
