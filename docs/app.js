@@ -89,7 +89,15 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   return `${API_BASE}?${params.toString()}`;
 }
 // --- HTML escaping helper (prevents XSS and broken markup) ---
-  
+
+function venueBadges(issnL) {
+  if (!issnL) return '';
+  const out = [];
+  if (jufoMap && jufoMap[issnL]) out.push(badge(`JUFO ${jufoMap[issnL]}`, 'jufo'));
+  if (ajgMap  && ajgMap[issnL])  out.push(badge(`AJG ${ajgMap[issnL]}`,  'ajg'));
+  return out.join(' ');
+}
+
 function renderItem(w) {
   const title = w.display_name ?? '(untitled)';
   const year  = w.publication_year ?? 'n/a';
@@ -104,8 +112,13 @@ function renderItem(w) {
     ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
     : [];
 
-  
-const badges = [
+  const issnL =
+  w.primary_location?.source?.issn_l ??
+  w.best_oa_location?.source?.issn_l ??
+  null;
+
+  const rankBadges = issnL ? ' ' + venueBadges(issnL) : ''; 
+  const badges = [
     isOA ? badge("OA", "oa") : "",
     hasFull ? badge("Fulltext") : "",
     badge(`Citations: ${cites}`),
@@ -118,6 +131,23 @@ const badges = [
   const openalexLink = w.id ? `${escapeAttr(w.id)}OpenAlex</a>` : "";
   const doiLink = w.doi ? ` • ${escapeAttr(w.doi)}DOI</a>` : "";
 
+  return `
+    <article class="item" data-id="${escapeAttr(w.id || '')}">
+      <h3>${escapeHTML(title)}
+        <span class="badges">${badges}</span>
+      </h3>
+      <div class="kv">
+        <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}<br/>
+        <strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)})<br/>
+        ${openalexLink}${doiLink}
+      </div>
+      <details class="kv" data-abs>
+        <summary>Abstract</summary>
+        <div class="muted">Fetching…</div>
+      </details>
+    </article>
+  `;
+}
 
  
 async function doSearch({ freshPage = false } = {}) {
