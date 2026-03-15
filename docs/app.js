@@ -38,11 +38,17 @@ function buildFilterStringFromUI({ excludeJournal = false } = {}) {
 
   // Journal filter (ISSN) — include only if not excluded
  
-
-if (!excludeJournal && journalSel && journalSel.value) {
-    // Use locations.source.issn so it matches journals appearing in any location of the work
-    filters.push(`locations.source.issn:${journalSel.value}`);
-  
+// #4 — Journal filter (multiple)
+  if (!excludeJournal) {
+    const selectedIssns = getSelectedJournals();       // returns ['1234-5678', 'xxxx-xxxx', ...]
+    if (selectedIssns.length) {
+      const capped = selectedIssns.slice(0, 100);      // API OR-limit = 100 values per filter
+      if (selectedIssns.length > 100) {
+        console.warn('[Journal] Too many selections; only first 100 applied.');
+      }
+      // Use locations.source.issn so it matches ANY location (primary/best OA)
+      filters.push(`locations.source.issn:${capped.join('|')}`);
+    }
   }
 
   return filters.join(',');
@@ -67,6 +73,59 @@ async function facetJournalsForFilter(filterStr) {
     .filter(Boolean);
 }
 
+// ===== Journal facet cache & renderer =====
+const JOURNAL_CACHE = {
+  items: [],      // array of {issn, name, issn_l}
+  filter: ''      // current text filter (lowercased)
+};
+
+// Return selected ISSNs from the multi-select
+function getSelectedJournals() {
+  const sel = document.getElementById('journal');
+  if (!sel) return [];
+  return Array.from(sel.selectedOptions || []).map(o => o.value).filter(Boolean);
+}
+
+// Render options according to the current text filter; preserve selection
+function renderJournalOptions(filterTerm = '') {
+  const sel = document.getElementById('journal');
+  if (!sel) return;
+
+  JOURNAL_CACHE.filter = String(filterTerm || '').toLowerCase();
+  const term = JOURNAL_CACHE.filter;
+
+  const selected = new Set(getSelectedJournals());
+
+  const filtered = !term
+    ? JOURNAL_CACHE.items
+    : JOURNAL_CACHE.items.filter(j =>
+        j.name.toLowerCase().includes(term) ||
+        j.issn.toLowerCase().includes(term) ||
+        j.issn_l.toLowerCase().includes(term)
+      );
+
+  sel.innerHTML = ''; // rebuild
+  if (!filtered.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No journals match your search';
+    opt.disabled = true;
+    sel.appendChild(opt);
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const j of filtered) {
+    const opt = document.createElement('option');
+    opt.value = j.issn; // we filter by locations.source.issn
+    opt.textContent = `${j.name} (${j.issn})`;
+    if (selected.has(j.issn)) opt.selected = true;
+    frag.appendChild(opt);
+  }
+  sel.appendChild(frag);
+}
+
+// Resolve ISSNs to names using /sources; chunk by 100 due to OR limit in filters
 async function resolveIssnNames(issns) {
   if (!issns.length) return [];
 
@@ -156,10 +215,7 @@ async function updateJournalFacetDropdown() {
     return;
   }
   const resolved = await resolveIssnNames(issns);
-populateJournalDropdownResolved(issns, resolved);
-}
-
-
+  
 // Build: {issn, name, issn_l} for each ISSN we got from the facet
   const byIssn = new Map();
   for (const s of resolved) {
