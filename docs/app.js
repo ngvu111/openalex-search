@@ -237,11 +237,7 @@ function renderItem(w) {
     return escapeAttr('https://doi.org/' + s.replace(/^doi:\s*/i, ''));
   })();
 
-  // nice label to shown
- 
-  const doiText = w.doi
-    ? String(w.doi).replace(/^https?:\/\/doi\.org\//i, 'doi:')
-    : 'DOI';
+  const doiHref = w.doi ? escapeAttr(w.doi) : null;
 
 
   // link with readable label "DOI"
