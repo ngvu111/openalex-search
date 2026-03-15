@@ -94,6 +94,7 @@ function renderItem(w) {
       </h3>
       <div class="kv">
         <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}
+        <br/><strong>Journal / Source:</strong> ${escapeHTML(venue)}
         <br/>${w.id  ? `${w.id}OpenAlex</a>` : ''}
         ${w.doi ? ` • ${w.doi}DOI</a>` : ''}
       </div>
