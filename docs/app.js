@@ -16,6 +16,7 @@ const sortIn = el('sort');
 const oaIn = el('oa');
 const hasFulltextIn = el('hasFulltext');
 const hasAbstractIn = el('hasAbstract');
+const doiText = el('doi');
 
 const meta = el('meta');
 const results = el('results');
