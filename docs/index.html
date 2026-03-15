@@ -8,96 +8,135 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="container">
-    <h1>OpenAlex Search</h1>
-    <p class="muted">Search scholarly works; filter by source type, results per page, sort; then apply OA/fulltext/abstract.</p>
-  </header>
+<header class="container page-header">
+  <!-- 🔘 Theme switch -->
+  <label class="theme-toggle">
+    <input id="themeToggle" type="checkbox" aria-label="Toggle dark mode" />
+    <span class="toggle-slider" aria-hidden="true"></span>
+    <span class="toggle-label">Dark</span>
+  </label>
 
-  <main class="container">
-    <form id="search-form" class="card">
-      <!-- Query -->
-      <div class="row">
-        <label for="q">Query</label>
-        <input id="q" name="q" type="search"
-               placeholder="e.g., humanitarian logistics refugee partnerships" required />
+  <h1>OpenAlex Search</h1>
+  <p class="muted">Search scholarly works; filter by journal and publication year; toggle light/dark.</p>
+</header>
+
+<main class="container">
+  <form id="search-form" class="card">
+
+    <!-- ▼▼ Drop-downs first ▼▼ -->
+    <div class="row two">
+      <div>
+        <label for="sourceType">Source type</label>
+        <select id="sourceType">
+          <option value="">Any</option>
+          <option value="journal" selected>Journal</option>
+          <option value="repository">Repository</option>
+          <option value="conference">Conference</option>
+          <option value="book series">Book series</option>
+          <option value="ebook platform">eBook platform</option>
+          <option value="other">Other</option>
+        </select>
       </div>
 
-      <!-- ▼▼ All drop-downs FIRST ▼▼ -->
+      <div>
+        <label for="per">Results per page</label>
+        <select id="per">
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row two">
+      <div>
+        <label for="sort">Sort by</label>
+        <select id="sort">
+          <option value="cited_by_count:desc" selected>Most cited</option>
+          <option value="publication_date:desc">Newest</option>
+          <option value="publication_date:asc">Oldest</option>
+        </select>
+      </div>
+
+      <!-- 📰 Journal list (populated from OpenAlex /sources?type=journal) -->
+      <div>
+        <label for="journal">Journal</label>
+        <select id="journal">
+          <option value="">Any journal</option>
+          <!-- options injected at runtime -->
+        </select>
+      </div>
+    </div>
+    <!-- ▲▲ Drop-downs ▲▲ -->
+
+    <!-- 🏅 AJG filter -->
+    <div class="row">
+      <div>
+        <label for="ajg">AJG 2024 ranking</label>
+        <select id="ajg">
+          <option value="">All grades</option>
+          <option value="4*">4*</option>
+          <option value="4">4</option>
+          <option value="3">3</option>
+          <option value="2">2</option>
+          <option value="1">1</option>
+        </select>
+        <small class="muted">AJG data © Chartered ABS (use responsibly).</small>
+      </div>
+    </div>
+
+    <!-- ✅ Checkboxes -->
+    <div class="row two">
+      <div class="checkbox">
+        <label><input id="oa" type="checkbox" /> Open Access only</label>
+      </div>
+      <div class="checkbox">
+        <label><input id="hasFulltext" type="checkbox" /> Has fulltext</label>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="checkbox">
+        <label><input id="hasAbstract" type="checkbox" /> Has abstract</label>
+      </div>
+    </div>
+
+    <!-- 🗓️ Year range slider (two handles) -->
+    <fieldset class="year-range">
+      <legend>Publication year</legend>
       <div class="row two">
         <div>
-          <label for="sourceType">Source type</label>
-          <select id="sourceType">
-            <option value="">Any</option>
-            <option value="journal">Journal</option>
-            <option value="repository">Repository</option>
-            <option value="conference">Conference</option>
-            <option value="book series">Book series</option>
-            <option value="ebook platform">eBook platform</option>
-            <option value="other">Other</option>
-          </select>
+          <label for="yearMin">From: <span id="yearMinLabel">—</span></label>
+          <input id="yearMin" type="range" min="1900" max="2026" value="2000" />
         </div>
-
         <div>
-          <label for="per">Results per page</label>
-          <select id="per">
-            <option value="20" selected>20</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
+          <label for="yearMax">To: <span id="yearMaxLabel">—</span></label>
+          <input id="yearMax" type="range" min="1900" max="2026" value="2026" />
         </div>
       </div>
+      <small class="muted">The sliders initialize to the earliest/latest years found via OpenAlex.</small>
+    </fieldset>
 
-      <div class="row two">
-        <div>
-          <label for="sort">Sort by</label>
-          <select id="sort">
-            <option value="cited_by_count:desc" selected>Most cited</option>
-            <option value="publication_date:desc">Newest</option>
-            <option value="publication_date:asc">Oldest</option>
-          </select>
-        </div>
-        <div></div><!-- spacer to keep grid balanced -->
-      </div>
-      <!-- ▲▲ All drop-downs FIRST ▲▲ -->
+    <!-- 🔎 Query -->
+    <div class="row">
+      <label for="q">Query</label>
+      <input id="q" type="search" placeholder="humanitarian logistics" required />
+    </div>
 
-      <!-- ▼▼ Then all checkboxes ▼▼ -->
-      <div class="row two">
-        <div class="checkbox">
-          <label><input id="oa" type="checkbox" /> Open Access only</label>
-        </div>
-        <div class="checkbox">
-          <label><input id="hasFulltext" type="checkbox" /> Has fulltext</label>
-        </div>
-      </div>
+    <div class="actions">
+      <button type="submit" class="btn">Search</button>
+      <button type="button" id="clear" class="btn secondary">Clear</button>
+    </div>
+  </form>
 
-      <div class="row">
-        <div class="checkbox">
-          <label><input id="hasAbstract" type="checkbox" /> Has abstract</label>
-        </div>
-      </div>
-      <!-- ▲▲ Then all checkboxes ▲▲ -->
-
-      <!-- Year (text/range) comes after the checkboxes -->
-      <div class="row">
-        <label for="year">Year (single or range)</label>
-        <input id="year" name="year" type="text" placeholder="2020-2026 or 2024" />
-      </div>
-
-      <div class="actions">
-        <button type="submit" class="btn">Search</button>
-        <button type="button" id="clear" class="btn secondary">Clear</button>
-      </div>
-    </form>
-
-    <section class="meta" id="meta"></section>
-    <section id="results" class="list"></section>
-
-    <nav id="pager" class="pager hidden">
-      <button id="prev" class="btn secondary">◀ Prev</button>
-      <span id="page-status" class="muted"></span>
-      <button id="next" class="btn secondary">Next ▶</button>
-    </nav>
-  </main>
+  <section class="meta" id="meta"></section>
+  <section id="results" class="list"></section>
+  <nav id="pager" class="pager hidden">
+    <button id="prev" class="btn secondary">◀ Prev</button>
+    <span id="page-status" class="muted"></span>
+    <button id="next" class="btn secondary">Next ▶</button>
+  </nav>
+</main>
 
   <footer class="container muted small">
     Data via <a href="https://openalex.org" target="_blank" rel="noopener">OpenAlex</a> (CC0).
