@@ -231,15 +231,20 @@ function renderItem(w) {
 
   
   // DOI
-  const doiLink = w.doi
-  ? ` • ${
-      escapeAttr(
-        /^https?:\/\//i.test(w.doi)
-          ? w.doi
-          : 'https://doi.org/' + String(w.doi).replace(/^doi:\s*/i,'')
-      )
-    }${escapeHTML(String(w.doi).replace('doi:'))}</a>`
+  
+  const doiHref = w.doi
+  ? (/^https?:\/\//i.test(w.doi) ? String(w.doi).trim()
+                                 : 'https://doi.org/' + String(w.doi).replace(/^doi:\s*/i,''))
+  : null;
+
+  const doiText = w.doi
+  ? String(w.doi).replace(/^https?:\/\/doi\.org\//i, 'doi:')
+  : 'DOI';
+
+  const doiLink = doiHref
+  ? ` • <a href="${escapeAttr(doiHref)}" target="_blank" rel="noopener">${escapeHTML(doiText)}</a>`
   : '';
+
 
 
 
