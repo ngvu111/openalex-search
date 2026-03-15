@@ -544,21 +544,6 @@ const doiLink = doiHref
 
  
 async function doSearch({ freshPage = false } = {}) {
-  try {
-  // NEW — fetch journals for the *entire* result set using group_by=journal
-  const journals = await fetchAllJournalsForQuery({
-    q, year, sourceType, oa, hasFulltext, hasAbs
-  });
-  populateJournalSelect(journals);   // NEW — rebuild list from full set
-} catch (e) {
-  console.warn('Journal list failed:', e);
-  if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
-  if (journalSelect) journalSelect.innerHTML = '';
-}
-  
-  
-  if (freshPage) page = 1;
-
   const q = qIn.value.trim();
   const year = yearIn.value.trim();
 
@@ -596,6 +581,21 @@ async function doSearch({ freshPage = false } = {}) {
     const r = await fetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
+  
+  try {
+  // NEW — fetch journals for the *entire* result set using group_by=journal
+  const journals = await fetchAllJournalsForQuery({
+    q, year, sourceType, oa, hasFulltext, hasAbs
+  });
+  populateJournalSelect(journals);   // NEW — rebuild list from full set
+} catch (e) {
+  console.warn('Journal list failed:', e);
+  if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
+  if (journalSelect) journalSelect.innerHTML = '';
+}
+  
+  
+  if (freshPage) page = 1;
 
     const count = data?.meta?.count ?? 0;
     const items = Array.isArray(data?.results) ? data.results : [];
