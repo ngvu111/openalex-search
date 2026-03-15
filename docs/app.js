@@ -544,6 +544,19 @@ const doiLink = doiHref
 
  
 async function doSearch({ freshPage = false } = {}) {
+  try {
+  // NEW — fetch journals for the *entire* result set using group_by=journal
+  const journals = await fetchAllJournalsForQuery({
+    q, year, sourceType, oa, hasFulltext, hasAbs
+  });
+  populateJournalSelect(journals);   // NEW — rebuild list from full set
+} catch (e) {
+  console.warn('Journal list failed:', e);
+  if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
+  if (journalSelect) journalSelect.innerHTML = '';
+}
+  }
+  
   if (freshPage) page = 1;
 
   const q = qIn.value.trim();
@@ -726,18 +739,7 @@ function wireJournalSearch() {
 
 // KEEP (context): after you render items & pager in doSearch()
 
-try {
-  // NEW — fetch journals for the *entire* result set using group_by=journal
-  const journals = await fetchAllJournalsForQuery({
-    q, year, sourceType, oa, hasFulltext, hasAbs
-  });
-  populateJournalSelect(journals);   // NEW — rebuild list from full set
-} catch (e) {
-  console.warn('Journal list failed:', e);
-  if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
-  if (journalSelect) journalSelect.innerHTML = '';
-}
-  }
+
 }
 }
 
