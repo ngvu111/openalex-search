@@ -443,8 +443,6 @@ async function doSearch({ freshPage = false } = {}) {
   const hasFulltext = hasFulltextIn.checked;
   const hasAbs = hasAbstractIn.checked;
 
-  // After: const items = Array.isArray(data?.results) ? data.results : [];
-populateJournalDropdown(items);           // <- if you still have the page-based version, you can remove it
 updateJournalFacetDropdown().catch(console.warn);  // facet-based dropdown for *all* results
 
 document.getElementById('journal')?.addEventListener('change', () => {
