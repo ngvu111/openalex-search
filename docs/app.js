@@ -24,30 +24,6 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
-// Optional sidecar rank maps (ISSN-L → level/grade)
-let jufoMap = null;   // e.g., { "0028-0836": "3", ... }
-let ajgMap  = null;   // e.g., { "0028-0836": "4*", ... }
-
-let page = 1;
-
-// Try to load sidecar rank maps if present
-(async function maybeLoadRanks() {
-  try {
-    const [jufoRes, ajgRes] = await Promise.allSettled([
-      fetch('./data/jufo.json'),
-      fetch('./data/ajg.json')
-    ]);
-    if (jufoRes.status === 'fulfilled' && jufoRes.value.ok) jufoMap = await jufoRes.value.json();
-    if (ajgRes.status === 'fulfilled' && ajgRes.value.ok) ajgMap  = await ajgRes.value.json();
-  } catch (_) { /* ignore */ }
-})();
-
-function escapeHTML(s) {
-  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-function badge(text, cls="") { return `<span class="badge ${cls}">${escapeHTML(text)}</span>`; }
-function pick(val, fallback) { return (val !== undefined && val !== null) ? val : fallback; }
-
 // Reconstruct plaintext abstract from inverted index
 function abstractFromInvertedIndex(obj) {
   if (!obj || typeof obj !== 'object') return null;
@@ -55,41 +31,6 @@ function abstractFromInvertedIndex(obj) {
   for (const [word, idxs] of Object.entries(obj)) idxs.forEach(i => positions[i] = word);
   return positions.join(' ');
 }
-
-// Return a list of candidate ISSN keys (ISSN-L first, then any raw ISSNs) to try
-function getIssnKeys(w) {
-  const keys = new Set();
-
-  const pl = w?.primary_location?.source;
-  const bo = w?.best_oa_location?.source;
-
-  // Preferred: ISSN-L from primary location or best OA location
-  [pl?.issn_l, bo?.issn_l].filter(Boolean).forEach(x => keys.add(String(x).trim()));
-
-  // Optional: if an 'issn' array exists, try those too (lets you map by ISSN as well)
-  [pl?.issn, bo?.issn].forEach(arr => {
-    if (Array.isArray(arr)) {
-      arr.forEach(i => keys.add(String(i).trim()));
-    }
-  });
-
-  return [...keys];
-}
-
-// Use any of the candidate keys against JUFO/AJG maps and assemble badges
-function venueBadgesByKeys(issnKeys) {
-  const out = [];
-  if (jufoMap) {
-    const hit = issnKeys.find(k => jufoMap[k]);
-    if (hit) out.push(badge(`JUFO ${jufoMap[hit]}`));
-  }
-  if (ajgMap) {
-    const hit = issnKeys.find(k => ajgMap[k]);
-    if (hit) out.push(badge(`AJG ${ajgMap[hit]}`));
-  }
-  return out.join(' ');
-}
-
 
 // Build URL with filters
 function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page }) {
@@ -129,15 +70,11 @@ function renderItem(w) {
 
   const venue = w.primary_location?.source?.display_name || '—';
   const type  = w.primary_location?.source?.type || '—';
-
-  const issnKeys = getIssnKeys(w);
   
   const authors = Array.isArray(w.authorships)
     ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
     : [];
-  console.debug('ISSN-L', w.primary_location?.source?.issn_l);
-console.debug('JUFO hit?', !!(jufoMap && jufoMap[w.primary_location?.source?.issn_l || '']));
-console.debug('AJG hit?',  !!(ajgMap  && ajgMap [w.primary_location?.source?.issn_l || '']));
+  
   return `
     <article class="item" data-id="${w.id}">
       <h3>${escapeHTML(title)}
