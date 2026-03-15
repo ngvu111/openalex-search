@@ -64,8 +64,17 @@
         </select>
       </div>
 
-      <!-- 📰 Journal list (populated from OpenAlex /sources?type=journal) -->
-      
+ 
+<!-- Journal quick filter toolbar -->
+<div class="journal-toolbar" style="display:flex; gap:.5rem; align-items:center; margin-bottom:.25rem;">
+  <input id="journalFilter" type="search" inputmode="search"
+         placeholder="Filter journals… (min 2 chars)"
+         aria-label="Filter journals"
+         autocomplete="off" style="flex:1 1 auto; min-width:18rem;">
+  <button id="journalFilterClear" type="button" aria-label="Clear filter"
+          title="Clear" style="padding:.4rem .6rem;">×</button>
+</div>
+     
 
 <!-- Journal multi-select (populated dynamically) -->
 <label for="journalSelect">Journals</label>
