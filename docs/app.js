@@ -393,6 +393,9 @@ async function updateJournalFacetDropdown() {
   .sort((a, b) => a.name.localeCompare(b.name));
 ``
   
+renderJournalChips();
+renderJournalList('');
+
 // Build: {issn, name, issn_l} for each ISSN we got from the facet
   const byIssn = new Map();
   for (const s of resolved) {
