@@ -173,6 +173,7 @@ function renderItem(w) {
       <div class="kv">
         <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}<br/>
         <strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)})<br/>
+        <strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)})${rankBadges}<br/>
         ${openalexLink}${doiLink}
       </div>
       <details class="kv" data-abs>
