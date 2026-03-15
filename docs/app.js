@@ -286,9 +286,3 @@ nextBtn.addEventListener('click', () => { page += 1; doSearch(); } );
 qIn.value = 'humanitarian logistics';
 doSearch({ freshPage: true });
 
-(async function boot() {
-  initYearRange();               // ✅ set up the single slider
-  // ... if you also load journals/AJG, do that here as well ...
-  qIn.value = 'humanitarian logistics';
-  doSearch({ freshPage: true });
-})();
