@@ -571,7 +571,6 @@ async function doSearch({ freshPage = false } = {}) {
     oa,
     hasFulltext,
     hasAbs,
-    page,
   });
 
   meta.innerHTML = `Searching<span class="spinner"></span>`;
