@@ -65,14 +65,21 @@
       </div>
 
       <!-- 📰 Journal list (populated from OpenAlex /sources?type=journal) -->
-      <div>
-        <label for="journal">Journal</label>
-        <select id="journal">
-          <option value="">Any journal</option>
-          <!-- options injected at runtime -->
-        </select>
-      </div>
-    </div>
+      
+<div class="row">
+  <div>
+    <label for="journalSearch">Journal</label>
+    <input id="journalSearch" type="search" placeholder="Search journals… (type to filter the list)" />
+    <select id="journal" multiple size="10">
+      <!-- Options are injected dynamically from facets -->
+      <option value="" disabled>— Select journals (optional) —</option>
+    </select>
+    <small class="muted">
+      You can select more than one journal (Ctrl/Cmd + click). Results will match ANY selected journal.
+    </small>
+  </div>
+</div>
+
     <!-- ▲▲ Drop-downs ▲▲ -->
 
 
