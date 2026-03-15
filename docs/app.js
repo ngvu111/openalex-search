@@ -69,34 +69,51 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
 // --- HTML escaping helper (prevents XSS and broken markup) ---
   
 function renderItem(w) {
-  const title = w.display_name || '(untitled)';
+  const title = w.display_name ?? '(untitled)';
   const year  = w.publication_year ?? 'n/a';
   const cites = w.cited_by_count ?? 0;
   const isOA  = !!w.open_access?.is_oa;
   const hasFull = !!w.has_fulltext;
 
-  const venue = w.primary_location?.source?.display_name || '—';
-  const type  = w.primary_location?.source?.type || '—';
-  
+  const venue = w.primary_location?.source?.display_name ?? '—';
+  const type  = w.primary_location?.source?.type ?? '—';
+
   const authors = Array.isArray(w.authorships)
     ? w.authorships.map(a => a?.author?.display_name).filter(Boolean).slice(0, 6)
     : [];
-  
+
+  // ISSN-L for rank badges (fallback to best OA location)
+  const issnL =
+    w.primary_location?.source?.issn_l ??
+    w.best_oa_location?.source?.issn_l ??
+    null;
+
+  const badges = [
+    isOA ? badge('OA','oa') : '',
+    hasFull ? badge('Fulltext') : '',
+    badge(`Citations: ${cites}`),
+    badge(`Year: ${year}`)
+  ].filter(Boolean).join('');
+
+  const openalexLink = w.id  ? `${escapeAttr(w.id)}OpenAlex</a>` : '';
+  const doiLink      = w.doi ? ` • ${escapeAttr(w.doi)}DOI</a>` : '';
+
+  let rankBadges = '';
+  if (issnL && typeof venueBadges === 'function') {
+    rankBadges = ' ' + venueBadges(issnL);
+  } else if (typeof getIssnKeys === 'function' && typeof venueBadgesByKeys === 'function') {
+    rankBadges = ' ' + venueBadgesByKeys(getIssnKeys(w));
+  }
+
   return `
-    <article class="item" data-id="${w.id}">
+    <article class="item" data-id="${escapeAttr(w.id || '')}">
       <h3>${escapeHTML(title)}
-        <span class="badges">
-          ${isOA ? badge('OA','oa') : ''}
-          ${hasFull ? badge('Fulltext') : ''}
-          ${badge(`Citations: ${cites}`)}
-          ${badge(`Year: ${year}`)}
-        </span>
+        <span class="badges">${badges}</span>
       </h3>
       <div class="kv">
-        <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}
-        <br/><strong>Journal / Source:</strong> ${escapeHTML(venue)}
-        <br/>${w.id  ? `${w.id}OpenAlex</a>` : ''}
-        ${w.doi ? ` • ${w.doi}DOI</a>` : ''}
+        <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}<br/>
+        <strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)})${rankBadges}<br/>
+        ${openalexLink}${doiLink}
       </div>
       <details class="kv" data-abs>
         <summary>Abstract</summary>
@@ -105,6 +122,7 @@ function renderItem(w) {
     </article>
   `;
 }
+``
 
 async function doSearch({ freshPage=false } = {}) {
   if (freshPage) page = 1;
