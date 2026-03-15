@@ -61,15 +61,9 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   return `${API_BASE}?${params.toString()}`;
 }
 // --- HTML escaping helper (prevents XSS and broken markup) ---
-function escapeHTML(str) {
-  return String(str).replace(/[&<>"']/g, ch => ({
-    '&' : '&amp;',
-    '<' : '&lt;',
-    '>' : '&gt;',
-    '"' : '&quot;',
-    "'" : '&#39;'
-  })[ch]);
-}
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  
 function renderItem(w) {
   const title = w.display_name || '(untitled)';
   const year  = w.publication_year ?? 'n/a';
