@@ -25,7 +25,27 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
+// ---- Elements ----
+const journalFilter      = document.getElementById('journalFilter');
+const journalFilterClear = document.getElementById('journalFilterClear');
+const journalSelect      = document.getElementById('journalSelect');
+const journalHelp        = document.getElementById('journalHelp');
 
+// ---- State you already use or we rely on ----
+let allJournals = allJournals || [];        // [{ id, name, count }]
+let selectedJournalIds = selectedJournalIds || new Set();
+
+// Guards to ensure we wire only once
+let journalSearchWired = false;
+let journalSelectWired = false;
+
+// Diacritics-insensitive normalization
+function norm(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
 // === Journal selector elements & state ===
 const journalSelect = el('journalSelect');
 const journalHelp   = el('journalHelp');
@@ -50,6 +70,104 @@ function norm(s) {
     .normalize('NFD')                // split diacritics
     .replace(/[\u0300-\u036f]/g, '') // strip diacritics
     .toLowerCase();
+}
+
+// NEW — rebuild <option>s based on a (possibly filtered) list + query
+function renderJournalOptions(list, query = '') {
+  if (!journalSelect) return;
+
+  const q = norm(query);
+  const visible = (q.length >= 2)
+    ? list.filter(j => norm(j.name).includes(q))
+    : list.slice();
+
+  // Pin selected journals to the top so they don't disappear while filtering
+  const selectedTop = [];
+  selectedJournalIds.forEach(id => {
+    const j = list.find(x => x.id === id);
+    if (j) selectedTop.push(j);
+  });
+  selectedTop.sort((a, b) => a.name.localeCompare(b.name));
+
+  const pinnedIds = new Set(selectedTop.map(j => j.id));
+  const body = visible.filter(j => !pinnedIds.has(j.id));
+
+  const frag = document.createDocumentFragment();
+
+  // Selected pinned first
+  for (const j of selectedTop) {
+    const opt = document.createElement('option');
+    opt.value = j.id;
+    opt.textContent = `${j.name} (${j.count.toLocaleString()})`;
+    opt.selected = true;
+    frag.appendChild(opt);
+  }
+
+  // Rest of matches
+  for (const j of body) {
+    const opt = document.createElement('option');
+    opt.value = j.id;
+    opt.textContent = `${j.name} (${j.count.toLocaleString()})`;
+    opt.selected = selectedJournalIds.has(j.id);
+    frag.appendChild(opt);
+  }
+
+  journalSelect.innerHTML = '';
+  journalSelect.appendChild(frag);
+
+  // Helper text
+  const shown = selectedTop.length + body.length;
+  if (journalHelp) {
+    journalHelp.textContent = q.length >= 2
+      ? `Showing ${shown.toLocaleString()} journals matching “${query}”. Selected: ${selectedJournalIds.size}`
+      : `${list.length.toLocaleString()} journals for this query. Selected: ${selectedJournalIds.size}`;
+  }
+}
+
+// NEW — entrypoint you call after group_by=journal returns
+function populateJournalSelect(list /* [{id,name,count}] */) {
+  allJournals = Array.isArray(list) ? list : [];
+  const q = journalFilter ? journalFilter.value.trim() : '';
+  renderJournalOptions(allJournals, q);
+}
+
+// NEW — one listener on the <select> (works even when options are rebuilt)
+function wireJournalSelect() {
+  if (journalSelectWired || !journalSelect) return;
+  journalSelectWired = true;
+
+  journalSelect.addEventListener('change', () => {
+    selectedJournalIds = new Set(
+      Array.from(journalSelect.selectedOptions, o => o.value)
+    );
+    // Trigger a fresh query whenever selection changes
+    doSearch({ freshPage: true });
+  });
+}
+
+// NEW — input box that filters the visible options
+function wireJournalSearch() {
+  if (journalSearchWired) return;
+  journalSearchWired = true;
+
+  if (journalFilter) {
+    let t;
+    journalFilter.addEventListener('input', () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        renderJournalOptions(allJournals, journalFilter.value.trim());
+      }, 120); // light debounce
+    });
+  }
+
+  if (journalFilterClear) {
+    journalFilterClear.addEventListener('click', () => {
+      if (!journalFilter) return;
+      journalFilter.value = '';
+      renderJournalOptions(allJournals, '');
+      journalFilter.focus();
+    });
+  }
 }
 /* ===== Theme toggle (JS) =====
    - expects this HTML inside your header:
@@ -206,7 +324,7 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
     'best_oa_location' 
   ].join(','));
 
-  params.set('per_page', String(per || 20));
+  params.set('per-page', String(per || 20));
   if (sort) params.set('sort', sort);
   params.set('page', String(page || 1));
   if (API_KEY) params.set('api_key', API_KEY);
@@ -621,9 +739,19 @@ function wireJournalSearch() {
       journalFilter.focus();
     });
 
-    
-  // In the catch(e) block
-  if (journalSelect) journalSelect.innerHTML = "";
+// KEEP (context): after you render items & pager in doSearch()
+
+try {
+  // NEW — fetch journals for the *entire* result set using group_by=journal
+  const journals = await fetchAllJournalsForQuery({
+    q, year, sourceType, oa, hasFulltext, hasAbs
+  });
+  populateJournalSelect(journals);   // NEW — rebuild list from full set
+} catch (e) {
+  console.warn('Journal list failed:', e);
+  if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
+  if (journalSelect) journalSelect.innerHTML = '';
+}
   }
 }
 }
