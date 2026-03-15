@@ -38,17 +38,11 @@ function buildFilterStringFromUI({ excludeJournal = false } = {}) {
 
   // Journal filter (ISSN) — include only if not excluded
  
-// #4 — Journal filter (multiple)
-  if (!excludeJournal) {
-    const selectedIssns = getSelectedJournals();       // returns ['1234-5678', 'xxxx-xxxx', ...]
-    if (selectedIssns.length) {
-      const capped = selectedIssns.slice(0, 100);      // API OR-limit = 100 values per filter
-      if (selectedIssns.length > 100) {
-        console.warn('[Journal] Too many selections; only first 100 applied.');
-      }
-      // Use locations.source.issn so it matches ANY location (primary/best OA)
-      filters.push(`locations.source.issn:${capped.join('|')}`);
-    }
+
+if (!excludeJournal && journalSel && journalSel.value) {
+    // Use locations.source.issn so it matches journals appearing in any location of the work
+    filters.push(`locations.source.issn:${journalSel.value}`);
+  
   }
 
   return filters.join(',');
@@ -73,233 +67,6 @@ async function facetJournalsForFilter(filterStr) {
     .filter(Boolean);
 }
 
-// ===== Journal facet cache & renderer =====
-const JOURNAL_CACHE = {
-  items: [],      // array of {issn, name, issn_l}
-  filter: ''      // current text filter (lowercased)
-};
-
-// ===== Journal selection state (replaces <select multiple>) =====
-const JOURNAL_SELECTED = new Set();  // holds ISSN strings
-
-// Expose to your filter builder (used in #4 below)
-function getSelectedJournals() {
-  return Array.from(JOURNAL_SELECTED);
-}
-
-// Render the chips for current selections
-function renderJournalChips() {
-  const wrap = document.getElementById('journalChips');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-  for (const issn of JOURNAL_SELECTED) {
-    const item = JOURNAL_CACHE.items.find(j => j.issn === issn);
-    const name = item?.name || issn;
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.textContent = name;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.setAttribute('aria-label', `Remove ${name}`);
-    btn.textContent = '×';
-    btn.addEventListener('click', () => {
-      JOURNAL_SELECTED.delete(issn);
-      renderJournalChips();
-      // keep list in sync
-      const li = document.querySelector(`#journalList li[data-issn="${CSS.escape(issn)}"]`);
-      if (li) li.setAttribute('aria-selected', 'false');
-      // trigger new search
-      page = 1;
-      doSearch({ freshPage: true });
-    });
-    chip.appendChild(btn);
-    wrap.appendChild(chip);
-  }
-}
-
-// Render the listbox according to the current text filter (names only)
-function renderJournalList(filterTerm = '') {
-  const list = document.getElementById('journalList');
-  if (!list) return;
-
-  const term = String(filterTerm || '').toLowerCase();
-  const filtered = term
-    ? JOURNAL_CACHE.items.filter(j =>
-        j.name.toLowerCase().includes(term) ||
-        j.issn.toLowerCase().includes(term) ||
-        j.issn_l.toLowerCase().includes(term)
-      )
-    : JOURNAL_CACHE.items;
-
-  list.innerHTML = '';
-  if (!filtered.length) {
-    const li = document.createElement('li');
-    li.textContent = 'No journals match your search';
-    li.setAttribute('aria-disabled', 'true');
-    li.style.opacity = .75;
-    list.appendChild(li);
-    return;
-  }
-
-  const frag = document.createDocumentFragment();
-  for (const j of filtered) {
-    const li = document.createElement('li');
-    li.role = 'option';
-    li.dataset.issn = j.issn;                  // we filter by locations.source.issn
-    li.setAttribute('aria-selected', JOURNAL_SELECTED.has(j.issn) ? 'true' : 'false');
-
-    // visual checkbox + NAME ONLY (as requested)
-    const box = document.createElement('span'); box.className = 'box';
-    const label = document.createElement('span'); label.textContent = j.name;
-
-    li.appendChild(box); li.appendChild(label);
-
-    // Click toggles selection
-    li.addEventListener('click', () => {
-      const on = li.getAttribute('aria-selected') === 'true';
-      if (on) { JOURNAL_SELECTED.delete(j.issn); }
-      else    { JOURNAL_SELECTED.add(j.issn); }
-      li.setAttribute('aria-selected', (!on).toString());
-      renderJournalChips();
-      page = 1;
-      doSearch({ freshPage: true });
-    });
-
-    frag.appendChild(li);
-  }
-  list.appendChild(frag);
-}
-
-// Open/close helpers
-function openJournalList() {
-  const box  = document.getElementById('journalBox');
-  const list = document.getElementById('journalList');
-  if (box && list) {
-    box.setAttribute('aria-expanded', 'true');
-    list.setAttribute('aria-hidden', 'false');
-  }
-}
-function closeJournalList() {
-  const box  = document.getElementById('journalBox');
-  const list = document.getElementById('journalList');
-  if (box && list) {
-    box.setAttribute('aria-expanded', 'false');
-    list.setAttribute('aria-hidden', 'true');
-  }
-}
-
-// Wire the combobox behavior once
-function wireJournalCombo() {
-  const box   = document.getElementById('journalBox');
-  const input = document.getElementById('journalInput');
-  const btn   = document.getElementById('journalToggle');
-  const list  = document.getElementById('journalList');
-  if (!box || !input || !btn || !list) return;
-
-  // Start closed
-  closeJournalList();
-  renderJournalChips();
-  renderJournalList('');
-
-  // Open/close
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const expanded = box.getAttribute('aria-expanded') === 'true';
-    expanded ? closeJournalList() : openJournalList();
-    if (!expanded) input.focus();
-  });
-  input.addEventListener('focus', () => openJournalList());
-
-  // Filter as you type (debounced)
-  let t; input.addEventListener('input', () => {
-    clearTimeout(t);
-    t = setTimeout(() => renderJournalList(input.value || ''), 120);
-  });
-
-  // Keyboard
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeJournalList(); input.blur(); }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      const first = list.querySelector('li[role="option"]:not([aria-disabled="true"])');
-      if (first) first.focus();
-    }
-  });
-
-  // Click outside closes
-  document.addEventListener('click', (e) => {
-    if (!document.getElementById('journalCombo').contains(e.target)) closeJournalList();
-  });
-
-  // Make options focusable for accessibility
-  list.addEventListener('keydown', (e) => {
-    const options = Array.from(list.querySelectorAll('li[role="option"]'));
-    const i = options.indexOf(document.activeElement);
-    if (e.key === 'Escape') { closeJournalList(); input.focus(); }
-    if (e.key === 'ArrowDown') { e.preventDefault(); (options[i+1] || options[0])?.focus(); }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); (options[i-1] || options.at(-1))?.focus(); }
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      document.activeElement?.click();
-    }
-  });
-
-  // Make options tabbable
-  const makeOptionsTabbable = () => {
-    list.querySelectorAll('li[role="option"]').forEach(li => li.tabIndex = 0);
-  };
-  const mo = new MutationObserver(makeOptionsTabbable);
-  mo.observe(list, { childList: true });
-  makeOptionsTabbable();
-}
-
-// Return selected ISSNs from the multi-select
-function getSelectedJournals() {
-  const sel = document.getElementById('journal');
-  if (!sel) return [];
-  return Array.from(sel.selectedOptions || []).map(o => o.value).filter(Boolean);
-}
-
-// Render options according to the current text filter; preserve selection
-function renderJournalOptions(filterTerm = '') {
-  const sel = document.getElementById('journal');
-  if (!sel) return;
-
-  JOURNAL_CACHE.filter = String(filterTerm || '').toLowerCase();
-  const term = JOURNAL_CACHE.filter;
-
-  const selected = new Set(getSelectedJournals());
-
-  const filtered = !term
-    ? JOURNAL_CACHE.items
-    : JOURNAL_CACHE.items.filter(j =>
-        j.name.toLowerCase().includes(term) ||
-        j.issn.toLowerCase().includes(term) ||
-        j.issn_l.toLowerCase().includes(term)
-      );
-
-  sel.innerHTML = ''; // rebuild
-  if (!filtered.length) {
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = 'No journals match your search';
-    opt.disabled = true;
-    sel.appendChild(opt);
-    return;
-  }
-
-  const frag = document.createDocumentFragment();
-  for (const j of filtered) {
-    const opt = document.createElement('option');
-    opt.value = j.issn; // we filter by locations.source.issn
-    opt.textContent = `${j.name} (${j.issn})`;
-    if (selected.has(j.issn)) opt.selected = true;
-    frag.appendChild(opt);
-  }
-  sel.appendChild(frag);
-}
-
-// Resolve ISSNs to names using /sources; chunk by 100 due to OR limit in filters
 async function resolveIssnNames(issns) {
   if (!issns.length) return [];
 
@@ -389,12 +156,9 @@ async function updateJournalFacetDropdown() {
     return;
   }
   const resolved = await resolveIssnNames(issns);
-  JOURNAL_CACHE.items = Array.from(new Map(items.map(it => [it.issn, it])).values())
-  .sort((a, b) => a.name.localeCompare(b.name));
-``
-  
-renderJournalChips();
-renderJournalList('');
+populateJournalDropdownResolved(issns, resolved);
+}
+
 
 // Build: {issn, name, issn_l} for each ISSN we got from the facet
   const byIssn = new Map();
