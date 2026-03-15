@@ -215,6 +215,9 @@ async function updateJournalFacetDropdown() {
     return;
   }
   const resolved = await resolveIssnNames(issns);
+
+  JOURNAL_CACHE.items = Array.from(new Map(items.map(it => [it.issn, it])).values())
+  .sort((a, b) => a.name.localeCompare(b.name));
   
 // Build: {issn, name, issn_l} for each ISSN we got from the facet
   const byIssn = new Map();
