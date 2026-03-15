@@ -49,7 +49,7 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   if (oa) filters.push('is_oa:true');
   if (hasFulltext) filters.push('has_fulltext:true');
   if (hasAbs) filters.push('has_abstract:true');
-  if (filters.length) params.set('filter', filters.join(','));}
+  if (filters.length) params.set('filter', filters.join(','));
 
   params.set('select', [
     'id','doi','display_name','publication_year','cited_by_count',
@@ -103,7 +103,7 @@ function renderItem(w) {
     rankBadges = ' ' + venueBadges(issnL);
   } else if (typeof getIssnKeys === 'function' && typeof venueBadgesByKeys === 'function') {
     rankBadges = ' ' + venueBadgesByKeys(getIssnKeys(w));
-  }
+  
 
   return `
     <article class="item" data-id="${escapeAttr(w.id || '')}">
@@ -122,7 +122,7 @@ function renderItem(w) {
     </article>
   `;
 }
-``
+
 
 async function doSearch({ freshPage=false } = {}) {
   if (freshPage) page = 1;
