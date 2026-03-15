@@ -32,7 +32,7 @@ const journalSelect      = document.getElementById('journalSelect');
 const journalHelp        = document.getElementById('journalHelp');
 
 // ---- State you already use or we rely on ----
-let allJournals = allJournals [];        // [{ id, name, count }]
+let allJournals = [];        // [{ id, name, count }]
 let selectedJournalIds = new Set();
 
 // Guards to ensure we wire only once
