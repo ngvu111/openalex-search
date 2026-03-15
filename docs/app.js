@@ -25,6 +25,14 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
+
+// === Journal selector elements & state ===
+const journalSelect = el('journalSelect');
+const journalHelp   = el('journalHelp');
+
+// Persist selected journals across re-renders of the list
+let selectedJournalIds = new Set();   // values like "https://openalex.org/S123456789"
+
 /* ===== Theme toggle (JS) =====
    - expects this HTML inside your header:
 
@@ -187,6 +195,86 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
 
   return `${API_BASE}?${params.toString()}`;
 }
+
+/**
+ * Get all journals matching the current query using group_by=journal.
+ * Returns [{ id, name, count }]
+ */
+async function fetchAllJournalsForQuery({ q, year, sourceType, oa, hasFulltext, hasAbs }) {
+  const params = new URLSearchParams();
+
+  if (q) params.set('search', q);
+
+  const filters = [];
+  if (year) filters.push(`publication_year:${year}`);
+  if (sourceType) filters.push(`locations.source.type:${sourceType}`); // e.g., journal/repository/conference [3](https://www.humanitarianlibrary.org/resource/bureau-humanitarian-assistance-technical-guidance-monitoring-evaluation-and-reporting)
+  if (oa) filters.push('is_oa:true');
+  if (hasFulltext) filters.push('has_fulltext:true');
+  if (hasAbs) filters.push('has_abstract:true');
+  if (filters.length) params.set('filter', filters.join(','));
+
+  params.set('group_by', 'journal');     // enumerate journals for the query [1](https://humanitarianencyclopedia.org/library)
+  params.set('per-page', '200');         // fetch many groups per call (hyphen) [4](https://www.ihffc.org/feeds.html)
+  if (API_KEY) params.set('api_key', API_KEY);
+
+  const out = [];
+  let p = 1;
+
+  while (true) {
+    params.set('page', String(p));
+    const url = `${API_BASE}?${params.toString()}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`group_by journals HTTP ${r.status}`);
+    const g = await r.json();
+
+    const buckets = Array.isArray(g?.group_by) ? g.group_by : [];
+    for (const b of buckets) {
+      out.push({
+        id:   b?.key,                    // e.g., "https://openalex.org/S123456789"
+        name: b?.key_display_name || b?.key || 'Unknown journal',
+        count: b?.count ?? 0
+      });
+    }
+
+    if (buckets.length < 200) break;     // finished this aggregation “page”
+    p += 1;
+    if (p > 25) break;                   // safety cap; increase if needed
+  }
+
+  // Sort by count desc, then name
+  out.sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name));
+  return out;
+}
+
+function populateJournalSelect(list) {
+  if (!journalSelect) return;
+
+  const prev = new Set(selectedJournalIds);  // keep prior selections
+  journalSelect.innerHTML = '';
+
+  const frag = document.createDocumentFragment();
+  for (const { id, name, count } of list) {
+    if (!id) continue;
+    const opt = document.createElement('option');
+    opt.value = id;                           // OpenAlex Source ID (ISSN-L-based)
+    opt.textContent = `${name} (${count.toLocaleString()})`;
+    if (prev.has(id)) opt.selected = true;
+    frag.appendChild(opt);
+  }
+  journalSelect.appendChild(frag);
+}
+
+function wireJournalSelect() {
+  if (!journalSelect) return;
+  journalSelect.addEventListener('change', () => {
+    selectedJournalIds = new Set(
+      Array.from(journalSelect.selectedOptions, o => o.value)
+    );
+    // Selections change → restart paging and re-run
+    doSearch({ freshPage: true });
+  });
+}
+
 // --- HTML escaping helper (prevents XSS and broken markup) ---
 
 function venueBadges(issnL) {
@@ -427,4 +515,29 @@ if (document.readyState === "loading") {
   wireHandlers();
   
   doSearch({ freshPage: true });
+
+  wireJournalSelect();
 }
+
+
+// === After rendering results in doSearch() ===
+try {
+  const journals = await fetchAllJournalsForQuery({ q, year, sourceType, oa, hasFulltext, hasAbs });
+  populateJournalSelect(journals);
+  if (journalHelp) journalHelp.textContent = `${journals.length.toLocaleString()} journals found for this query`;
+} catch (e) {
+  console.warn('Journal list failed:', e);
+  if (journalSelect) journalSelect.innerHTML = '';
+  if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
+}
+
+if (!q) {
+  meta.textContent = "Type a query to search.";
+  results.innerHTML = "";
+  pager.classList.add("hidden");
++ if (journalSelect) journalSelect.innerHTML = "";
+  return;
+}
+
+// In the catch(e) block
++ if (journalSelect) journalSelect.innerHTML = "";
