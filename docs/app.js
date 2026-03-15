@@ -227,7 +227,7 @@ function renderItem(w) {
     .join("");
 
   // Links
-  const openalexLink = w.id ? `${escapeAttr(w.id)}OpenAlex</a>` : "";
+  const openalexLink = <a href=w.id ? `${escapeAttr(w.id)}OpenAlex</a>` : "";
 
   
   // DOI
