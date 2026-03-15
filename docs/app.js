@@ -403,6 +403,6 @@ if (document.readyState === "loading") {
   });
 } else {
   wireHandlers();
-  qIn.value = "humanitarian logistics";
+  
   doSearch({ freshPage: true });
 }
