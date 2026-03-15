@@ -24,6 +24,12 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function badge(text, cls="") { return `<span class="badge ${cls}">${escapeHTML(text)}</span>`; }
+function pick(val, fallback) { return (val !== undefined && val !== null) ? val : fallback; }
+
 // Reconstruct plaintext abstract from inverted index
 function abstractFromInvertedIndex(obj) {
   if (!obj || typeof obj !== 'object') return null;
@@ -61,8 +67,6 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   return `${API_BASE}?${params.toString()}`;
 }
 // --- HTML escaping helper (prevents XSS and broken markup) ---
-function escapeHTML(s) {
-  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   
 function renderItem(w) {
   const title = w.display_name || '(untitled)';
