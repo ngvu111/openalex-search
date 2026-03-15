@@ -24,6 +24,17 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
+
+const journalIn = document.getElementById('journal');
+
+const yearMin = document.getElementById('yearMin');
+const yearMax = document.getElementById('yearMax');
+const yearMinLabel = document.getElementById('yearMinLabel');
+const yearMaxLabel = document.getElementById('yearMaxLabel');
+
+const themeToggle = document.getElementById('themeToggle');
+let journals = [];
+
 // Reconstruct plaintext abstract from inverted index
 function abstractFromInvertedIndex(obj) {
   if (!obj || typeof obj !== 'object') return null;
@@ -31,6 +42,22 @@ function abstractFromInvertedIndex(obj) {
   for (const [word, idxs] of Object.entries(obj)) idxs.forEach(i => positions[i] = word);
   return positions.join(' ');
 }
+
+// Theme initialization: respect saved choice, else system preference applies
+(function initTheme() {
+  const saved = localStorage.getItem('theme'); // 'light' | 'dark' | null
+  if (saved === 'light' || saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', saved);
+    themeToggle.checked = (saved === 'dark');
+  } else {
+    themeToggle.checked = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+})();
+themeToggle.addEventListener('change', () => {
+  const next = themeToggle.checked ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
 
 // Build URL with filters
 function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page }) {
@@ -45,6 +72,33 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   if (hasAbs) filters.push('has_abstract:true');
   if (filters.length) params.set('filter', filters.join(','));
 
+  const API_SOURCES = 'https://api.openalex.org/sources';
+
+// Load ~200 journals sorted by works_count (adjust as needed)
+async function loadJournals() {
+  const sp = new URLSearchParams({
+    filter: 'type:journal',
+    per_page: '200',
+    sort: 'works_count:desc',
+    select: 'display_name,issn_l,works_count'
+  });
+  if (API_KEY) sp.set('api_key', API_KEY);
+  const url = `${API_SOURCES}?${sp.toString()}`;
+  const r = await fetch(url);
+  if (!r.ok) return;
+  const data = await r.json();
+  journals = (data.results || []).filter(j => j.issn_l && j.display_name);
+  // Populate select
+  const frag = document.createDocumentFragment();
+  journals.forEach(j => {
+    const opt = document.createElement('option');
+    opt.value = j.issn_l;
+    opt.textContent = `${j.display_name} (${j.issn_l})`;
+    frag.appendChild(opt);
+  });
+  journalIn.appendChild(frag);
+}
+  
   params.set('select', [
     'id','doi','display_name','publication_year','cited_by_count',
     'open_access','has_fulltext','abstract_inverted_index',
