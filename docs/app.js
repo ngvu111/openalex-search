@@ -24,6 +24,72 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
+/* ===== Theme toggle (JS) =====
+   - expects this HTML inside your header:
+
+   <label class="theme-toggle">
+     <input id="themeToggle" type="checkbox" aria-label="Toggle dark mode" />
+     <span class="toggle-slider" aria-hidden="true"></span>
+     <span class="toggle-label">Dark</span>
+   </label>
+*/
+(function initThemeToggle() {
+  const root  = document.documentElement;
+  const toggle = document.getElementById('themeToggle');
+  const label  = document.querySelector('.theme-toggle .toggle-label');
+
+  if (!toggle) return; // toggle not on this page
+
+  // --- helpers ---
+  const systemPref = () =>
+    window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+
+  const applyTheme = (mode, { persist = true } = {}) => {
+    if (mode === 'light' || mode === 'dark') {
+      root.setAttribute('data-theme', mode);
+      if (persist) localStorage.setItem('theme', mode);
+      toggle.checked = (mode === 'dark');
+      if (label) label.textContent = mode === 'dark' ? 'Dark' : 'Light';
+    } else {
+      // no user override → follow system
+      root.removeAttribute('data-theme');
+      localStorage.removeItem('theme');
+      const sys = systemPref();
+      toggle.checked = (sys === 'dark');
+      if (label) label.textContent = sys === 'dark' ? 'Dark' : 'Light';
+    }
+  };
+
+  // --- initialize from saved value or system ---
+  const saved = localStorage.getItem('theme'); // 'light' | 'dark' | null
+  if (saved === 'light' || saved === 'dark') {
+    applyTheme(saved, { persist: false });
+  } else {
+    applyTheme(null, { persist: false }); // follow system
+  }
+
+  // --- user changes ---
+  toggle.addEventListener('change', () => {
+    const next = toggle.checked ? 'dark' : 'light';
+    applyTheme(next, { persist: true });
+  });
+
+  // --- system changes (only if no user override) ---
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const onSystemChange = () => {
+    if (!localStorage.getItem('theme')) applyTheme(null, { persist: false });
+  };
+  if (mq.addEventListener) mq.addEventListener('change', onSystemChange);
+  else if (mq.addListener) mq.addListener(onSystemChange); // older Safari
+
+  // Optional: expose a small API you can call from Console
+  window.setTheme = applyTheme;  // setTheme('dark'|'light'|null)
+})();
+
+
 // ===== Rank maps (ISSN-L → grade) =====
 // Keep the names exactly like this (case-sensitive!)
 let jufoMap = null;   // e.g., { "0028-0836": "3",  ... }
