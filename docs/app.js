@@ -49,7 +49,7 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   if (oa) filters.push('is_oa:true');
   if (hasFulltext) filters.push('has_fulltext:true');
   if (hasAbs) filters.push('has_abstract:true');
-  if (filters.length) params.set('filter', filters.join(','));
+  if (filters.length) params.set('filter', filters.join(','));}
 
   params.set('select', [
     'id','doi','display_name','publication_year','cited_by_count',
