@@ -629,9 +629,9 @@ if (!q) {
   meta.textContent = "Type a query to search.";
   results.innerHTML = "";
   pager.classList.add("hidden");
-+ if (journalSelect) journalSelect.innerHTML = "";
+if (journalSelect) journalSelect.innerHTML = "";
   return;
 }
 
 // In the catch(e) block
-+ if (journalSelect) journalSelect.innerHTML = "";
+if (journalSelect) journalSelect.innerHTML = "";
