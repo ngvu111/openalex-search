@@ -231,17 +231,16 @@ function renderItem(w) {
 
   
   // Normalize DOI to a URL and build a clickable <a> tag
-  const doiHref = (() => {
-    if (!w.doi) return null;
-    const s = String(w.doi).trim();
-    if (/^https?:\/\//i.test(s)) return escapeAttr(s);         // already URL
-    return escapeAttr('https://doi.org/' + s.replace(/^doi:\s*/i, ''));
-  })();
+  
+  const doiHref = w.doi
+  ? (/^https?:\/\//i.test(w.doi) ? w.doi : `https://doi.org/${String(w.doi).replace(/^doi:\s*/i,'')}`)
+  : null;
 
-
+  const doiText = w.doi ? String(w.doi).replace(/^https?:\/\/doi\.org\//i, 'doi:') : 'DOI';
   const doiLink = doiHref
-    ? ` • ${doiHref}${escapeHTML(doiText)}</a>`
-    : '';
+  ? ` • ${toAnchor(doiHref, doiText)}`
+  : '';
+
 
 
   return `
@@ -251,7 +250,6 @@ function renderItem(w) {
       </h3>
       <div class="kv">
         <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}<br/>
-        <strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)})<br/>
         <strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)})${rankBadges}<br/>
         ${openalexLink}${doiLink}
       </div>
