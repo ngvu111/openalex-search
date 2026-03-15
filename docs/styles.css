@@ -145,3 +145,8 @@ body { background: var(--bg); color: var(--fg); }
 #sourceType option, #per option, #sort option, #journal option, #ajg option {
   background-color: #000; color: #fff;
 }
+
+/* Year range UI */
+.year-range { border: 1px solid var(--border); border-radius: 12px; padding: .75rem 1rem; }
+.year-range legend { color: var(--muted); font-size: .95rem; padding: 0 .25rem; }
+#yearRange { width: 100%; accent-color: var(--primary); }
