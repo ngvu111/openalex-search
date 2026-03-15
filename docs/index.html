@@ -66,20 +66,18 @@
 
       <!-- 📰 Journal list (populated from OpenAlex /sources?type=journal) -->
       
-<!-- Journal filter: searchable multi-select (closed until clicked) -->
-<div class="row">
-  <div>
-    <label for="journalSearch">Journal</label>
-    <input id="journalSearch" type="search" placeholder="Search journals… (type to filter the list)" />
-    <select id="journal" multiple size="10">
-      <!-- Options are injected dynamically from facets -->
-      <option value="" disabled>— Select journals (optional) —</option>
-    </select>
-    <small class="muted">
-      You can select more than one journal (Ctrl/Cmd + click). Results will match ANY selected journal.
-    </small>
-  </div>
+
+<!-- Journal multi-select (populated dynamically) -->
+<label for="journalSelect">Journals</label>
+<select id="journalSelect" multiple size="8" style="min-width: 24rem;">
+  <!-- Options will be populated after each search -->
+</select>
+
+<!-- Small helper text -->
+<div class="muted" id="journalHelp">
+  Pick one or more journals (Ctrl/Cmd-click). Leave empty to include all.
 </div>
+
 
     <!-- ▲▲ Drop-downs ▲▲ -->
 
