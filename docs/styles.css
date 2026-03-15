@@ -81,39 +81,59 @@ input[type="search"], input[type="text"], select {
 @keyframes pulse { 50% { opacity: .2; } }
 
 /* Header row: keeps title at left, toggle at right */
+/* Header row: title left, toggle right */
 .page-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;   /* pushes ends apart */
+  justify-content: space-between;
   gap: 1rem;
 }
 
-/* Toggle: no manual positioning—let flex place it on the right */
+/* Toggle container (do not position it across the page) */
 .theme-toggle {
-  /* REMOVE: position:relative; top:0; right:0; */
+  position: relative;         /* provide positioning context */
   display: inline-flex;
   align-items: center;
   gap: .5rem;
   user-select: none;
-
-  /* this is optional now, because space-between handles it,
-     but keeping it won't hurt if you change layout later */
-  margin-left: auto;
+  flex: 0 0 auto;             /* prevent flex stretching */
 }
 
-/* Keep your existing toggle visuals */
-.theme-toggle input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+/* Bounded hit area the size of the visual switch */
+.toggle-hit {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+}
+
+/* Checkbox fills only the hit area, not the page */
+.toggle-hit > input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;                 /* invisible but clickable */
+  cursor: pointer;
+}
+
+/* Keep your existing visuals */
 .toggle-slider {
-  width:42px; height:24px; border-radius:999px;
-  background:#333; border:1px solid #555; position:relative; transition:.2s;
+  width: 100%; height: 100%;
+  border-radius: 999px;
+  background: #333;
+  border: 1px solid #555;
+  position: relative;
+  transition: .2s;
 }
 .toggle-slider::after {
-  content:""; width:18px; height:18px; border-radius:50%;
-  background:#fff; position:absolute; top:2px; left:2px; transition:transform .2s;
+  content: "";
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; position: absolute; top: 2px; left: 2px;
+  transition: transform .2s;
 }
-.theme-toggle input:checked + .toggle-slider { background:#4f46e5; border-color:#4f46e5; }
-.theme-toggle input:checked + .toggle-slider::after { transform:translateX(18px); }
-.toggle-label { font-size:.9rem; color:var(--muted); }
+#themeToggle:checked + .toggle-slider { background: #4f46e5; border-color: #4f46e5; }
+#themeToggle:checked + .toggle-slider::after { transform: translateX(18px); }
+
+.toggle-label { font-size: .9rem; color: var(--muted); }
 
 /* Theme variables: default = dark */
 :root {
