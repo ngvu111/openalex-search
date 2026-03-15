@@ -238,7 +238,7 @@ function renderItem(w) {
           ? w.doi
           : 'https://doi.org/' + String(w.doi).replace(/^doi:\s*/i,'')
       )
-    }${escapeHTML(String(w.doi).replace(/^https?:\/\/doi\.org\//i, 'doi:'))}</a>`
+    }${escapeHTML(String(w.doi).replace('doi:'))}</a>`
   : '';
 
 
