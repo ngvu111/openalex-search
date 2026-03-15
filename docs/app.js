@@ -555,7 +555,7 @@ async function doSearch({ freshPage = false } = {}) {
   if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
   if (journalSelect) journalSelect.innerHTML = '';
 }
-  }
+  
   
   if (freshPage) page = 1;
 
