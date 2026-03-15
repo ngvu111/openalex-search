@@ -47,18 +47,6 @@ function norm(s) {
     .toLowerCase();
 }
 
-// Persist selected journals across re-renders of the list
-let selectedJournalIds = new Set();   // values like "https://openalex.org/S123456789"
-
-
-// Journal filter UI
-const journalFilter      = el('journalFilter');
-const journalFilterClear = el('journalFilterClear');
-
-// Cache the full, unfiltered list from group_by=journal
-// Each item: { id, name, count }
-let allJournals = [];
-
 // Debounce handle
 let journalFilterTimer = null;
 
