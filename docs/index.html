@@ -17,12 +17,18 @@
   </label>
 
   <h1>OpenAlex Search</h1>
-  <p class="muted">Search scholarly works; filter by journal and publication year; toggle light/dark.</p>
+  <p class="muted">Search scholarly works</p>
 </header>
 
 <main class="container">
   <form id="search-form" class="card">
-
+    
+    <!-- 🔎 Query -->
+    <div class="row">
+      <label for="q">Query</label>
+      <input id="q" type="search" placeholder="humanitarian logistics" required />
+    </div>
+    
     <!-- ▼▼ Drop-downs first ▼▼ -->
     <div class="row two">
       <div>
@@ -86,27 +92,20 @@
       </div>
     </div>
 
-    <!-- 🗓️ Year range slider (two handles) -->
-    <fieldset class="year-range">
-      <legend>Publication year</legend>
-      <div class="row two">
-        <div>
-          <label for="yearMin">From: <span id="yearMinLabel">—</span></label>
-          <input id="yearMin" type="range" min="1900" max="2026" value="2000" />
-        </div>
-        <div>
-          <label for="yearMax">To: <span id="yearMaxLabel">—</span></label>
-          <input id="yearMax" type="range" min="1900" max="2026" value="2026" />
-        </div>
-      </div>
-      <small class="muted">The sliders initialize to the earliest/latest years found via OpenAlex.</small>
-    </fieldset>
+   <!-- One slider: from 1990 to the latest year -->
+<fieldset class="year-range">
+  <legend>Publication year</legend>
+  <div class="row">
+    <label for="yearRange">
+      From <strong id="yearRangeLabel">1990</strong> to <strong id="yearRangeMax">—</strong>
+    </label>
+    <input id="yearRange" type="range" min="1990" max="2026" value="2026" />
+  </div>
+  <small class="muted">
+    Drag the slider to set the earliest publication year. “To” is always the latest year available.
+  </small>
+</fieldset>
 
-    <!-- 🔎 Query -->
-    <div class="row">
-      <label for="q">Query</label>
-      <input id="q" type="search" placeholder="humanitarian logistics" required />
-    </div>
 
     <div class="actions">
       <button type="submit" class="btn">Search</button>
