@@ -24,6 +24,44 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
+// ===== Rank maps (ISSN-L → grade) =====
+// Keep the names exactly like this (case-sensitive!)
+let jufoMap = null;   // e.g., { "0028-0836": "3",  ... }
+let ajgMap  = null;   // e.g., { "0028-0836": "4*", ... }
+
+/**
+ * Load /docs/data/ajg.json and /docs/data/jufo.json (optional).
+ * Files are optional: helpers below are null-safe and will just return "" if maps aren't present.
+ */
+async function loadRankMaps() {
+  try {
+    const [ajgRes, jufoRes] = await Promise.allSettled([
+      fetch('./data/ajg.json'),
+      fetch('./data/jufo.json')
+    ]);
+
+    if (ajgRes.status === 'fulfilled' && ajgRes.value.ok) {
+      ajgMap = await ajgRes.value.json();
+    } else {
+      ajgMap = null;
+    }
+
+    if (jufoRes.status === 'fulfilled' && jufoRes.value.ok) {
+      jufoMap = await jufoRes.value.json();
+    } else {
+      jufoMap = null;
+    }
+
+    // Optional: quick visibility in Console
+    console.debug('[AJG] entries:', ajgMap ? Object.keys(ajgMap).length : 0);
+    console.debug('[JUFO] entries:', jufoMap ? Object.keys(jufoMap).length : 0);
+
+  } catch (err) {
+    console.warn('loadRankMaps() failed:', err);
+    ajgMap = null;
+    jufoMap = null;
+  }
+}
 
 function escapeHTML(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
