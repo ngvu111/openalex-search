@@ -26,10 +26,11 @@ const pageStatus = el('page-status');
 
 const journalIn = document.getElementById('journal');
 
-const yearMin = document.getElementById('yearMin');
-const yearMax = document.getElementById('yearMax');
-const yearMinLabel = document.getElementById('yearMinLabel');
-const yearMaxLabel = document.getElementById('yearMaxLabel');
+
+const yearRange = document.getElementById('yearRange');
+const yearRangeLabel = document.getElementById('yearRangeLabel');
+const yearRangeMax = document.getElementById('yearRangeMax');
+
 
 const themeToggle = document.getElementById('themeToggle');
 let journals = [];
@@ -65,12 +66,13 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
 
   const filters = [];
  
-// Year range → date filters
-  if (yearMin && yearMax) {
-    const from = `${yearMin.value}-01-01`;
-    const to   = `${yearMax.value}-12-31`;
-    filters.push(`from_publication_date:${from}`, `to_publication_date:${to}`);
-  }
+
+/ 👇 Year range: from the slider value to the latest year (Dec 31)
+  const latest = new Date().getFullYear(); // or 2026 if you want a fixed cap
+  const from = `${yearRange.value}-01-01`;
+  const to   = `${latest}-12-31`;
+  filters.push(`from_publication_date:${from}`, `to_publication_date:${to}`);
+
 
   if (sourceType) filters.push(`primary_location.source.type:${sourceType}`);
   if (oa) filters.push('is_oa:true');
@@ -158,54 +160,25 @@ function renderItem(w) {
   `;
 }
 
-async function initYearBounds() {
-  try {
-    const spOld = new URLSearchParams({ per_page: '1', sort: 'publication_year:asc', select: 'publication_year' });
-    const spNew = new URLSearchParams({ per_page: '1', sort: 'publication_year:desc', select: 'publication_year' });
-    if (API_KEY) { spOld.set('api_key', API_KEY); spNew.set('api_key', API_KEY); }
+function initYearRange() {
+  // Always start from 1990
+  const MIN = 1990;
+  // Latest = current calendar year
+  const latest = new Date().getFullYear();
 
-    const [rOld, rNew] = await Promise.all([
-      fetch(`${API_BASE}?${spOld.toString()}`),
-      fetch(`${API_BASE}?${spNew.toString()}`)
-    ]);
+  // Set the control bounds and default
+  yearRange.min = String(MIN);
+  yearRange.max = String(latest);
+  yearRange.value = String(latest);
 
-    const yMin = (rOld.ok ? (await rOld.json())?.results?.[0]?.publication_year : null) ?? 1900;
-    const yMax = (rNew.ok ? (await rNew.json())?.results?.[0]?.publication_year : null) ?? new Date().getFullYear();
+  // Update the labels
+  yearRangeLabel.textContent = yearRange.value;
+  yearRangeMax.textContent = String(latest);
 
-    yearMin.min = String(yMin);
-    yearMin.max = String(yMax);
-    yearMax.min = String(yMin);
-    yearMax.max = String(yMax);
-
-    // Set defaults to full range
-    yearMin.value = String(yMin);
-    yearMax.value = String(yMax);
-
-    // Show labels
-    yearMinLabel.textContent = yearMin.value;
-    yearMaxLabel.textContent = yearMax.value;
-
-    // Keep From <= To
-    yearMin.addEventListener('input', () => {
-      if (+yearMin.value > +yearMax.value) yearMax.value = yearMin.value;
-      yearMinLabel.textContent = yearMin.value;
-      yearMaxLabel.textContent = yearMax.value;
-    });
-    yearMax.addEventListener('input', () => {
-      if (+yearMax.value < +yearMin.value) yearMin.value = yearMax.value;
-      yearMinLabel.textContent = yearMin.value;
-      yearMaxLabel.textContent = yearMax.value;
-    });
-  } catch (e) {
-    console.warn('initYearBounds()', e);
-    // Fallback if API fails
-    const yMin = 1900;
-    const yMax = new Date().getFullYear();
-    [yearMin.min, yearMin.max, yearMin.value] = [yMin, yMax, yMin].map(String);
-    [yearMax.min, yearMax.max, yearMax.value] = [yMin, yMax, yMax].map(String);
-    yearMinLabel.textContent = yearMin.value;
-    yearMaxLabel.textContent = yearMax.value;
-  }
+  // Keep the label in sync while dragging
+  yearRange.addEventListener('input', () => {
+    yearRangeLabel.textContent = yearRange.value;
+  });
 }
 
 async function doSearch({ freshPage=false } = {}) {
@@ -287,10 +260,13 @@ form.addEventListener('submit', (e) => { e.preventDefault(); doSearch({ freshPag
 el('clear').addEventListener('click', () => {
   qIn.value = '';
   
-  yearMin.value = yearMin.min;
-  yearMax.value = yearMax.max;
-  yearMinLabel.textContent = yearMin.value;
-  yearMaxLabel.textContent = yearMax.value;
+  
+// reset the year slider to latest
+  const latest = new Date().getFullYear(); // or 2026
+  yearRange.value = String(latest);
+  yearRangeLabel.textContent = yearRange.value;
+  yearRangeMax.textContent = String(latest);
+
   sourceTypeIn.value = '';
   perIn.value = '20';
   sortIn.value = 'cited_by_count:desc';
@@ -311,7 +287,8 @@ qIn.value = 'humanitarian logistics';
 doSearch({ freshPage: true });
 
 (async function boot() {
-  await initYearBounds();        // ← make sure the range is ready
+  initYearRange();               // ✅ set up the single slider
+  // ... if you also load journals/AJG, do that here as well ...
   qIn.value = 'humanitarian logistics';
   doSearch({ freshPage: true });
 })();
