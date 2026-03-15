@@ -739,7 +739,7 @@ function wireJournalSearch() {
 
 // KEEP (context): after you render items & pager in doSearch()
 
-
+  }
 }
 }
 
