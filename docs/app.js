@@ -620,18 +620,13 @@ function wireJournalSearch() {
       renderJournalOptions(allJournals, '');
       journalFilter.focus();
     });
+
+    
+  // In the catch(e) block
+  if (journalSelect) journalSelect.innerHTML = "";
   }
 }
 }
 
 
-if (!q) {
-    meta.textContent = "Type a query to search.";
-    results.innerHTML = "";
-    pager.classList.add("hidden");
-    return;
-  }
 
-
-// In the catch(e) block
-if (journalSelect) journalSelect.innerHTML = "";
