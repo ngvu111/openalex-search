@@ -227,23 +227,25 @@ function renderItem(w) {
     .join("");
 
   // Links
-  const openalexLink = `<a href =w.id ?> ${escapeAttr(w.id)}</a>` : "";
+  const openalexLink =  =w.id ? ` • ${escapeAttr(w.id)}</a>` : "";
 
   
   // DOI
   
-  const doiHref = w.doi
+  
+const doiHref = w.doi
   ? (/^https?:\/\//i.test(w.doi) ? String(w.doi).trim()
                                  : 'https://doi.org/' + String(w.doi).replace(/^doi:\s*/i,''))
   : null;
 
-  const doiText = w.doi
+const doiText = w.doi
   ? String(w.doi).replace(/^https?:\/\/doi\.org\//i, 'doi:')
   : 'DOI';
 
-  const doiLink = doiHref
+const doiLink = doiHref
   ? ` • <a href="${escapeAttr(doiHref)}" target="_blank" rel="noopener">${escapeHTML(doiText)}</a>`
   : '';
+
 
 
 
