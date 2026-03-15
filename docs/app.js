@@ -90,12 +90,6 @@ function venueBadgesByKeys(issnKeys) {
   return out.join(' ');
 }
 
-function venueBadges(issnL) {
-  const out = [];
-  if (jufoMap && jufoMap[issnL]) out.push(badge(`JUFO ${jufoMap[issnL]}`));
-  if (ajgMap  && ajgMap[issnL])  out.push(badge(`AJG ${ajgMap[issnL]}`));
-  return out.join(' ');
-}
 
 // Build URL with filters
 function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page }) {
@@ -156,7 +150,6 @@ console.debug('AJG hit?',  !!(ajgMap  && ajgMap [w.primary_location?.source?.iss
       </h3>
       <div class="kv">
         <strong>Authors:</strong> ${authors.length ? authors.map(escapeHTML).join(', ') : '—'}
-        <br/><strong>Journal / Source:</strong> ${escapeHTML(venue)} (${escapeHTML(type)}) ${issnL ? venueBadges(issnL) : ''}
         <br/>${w.id  ? `${w.id}OpenAlex</a>` : ''}
         ${w.doi ? ` • ${w.doi}DOI</a>` : ''}
       </div>
