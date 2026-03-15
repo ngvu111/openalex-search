@@ -146,3 +146,7 @@ body { background: var(--bg); color: var(--fg); }
   background-color: #000; color: #fff;
 }
 
+.badge.jufo { background:#334155; color:#fff; } /* slate */
+.badge.ajg  { background:#4b5563; color:#fff; } /* gray  */
+``
+
