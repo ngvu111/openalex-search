@@ -7,7 +7,6 @@ const API_KEY = (typeof window.OPENALEX_API_KEY === 'string' && window.OPENALEX_
 const el = (id) => document.getElementById(id);
 const form = el('search-form');
 const qIn = el('q');
-const yearIn = el('year');
 
 const sourceTypeIn = el('sourceType');
 const perIn = el('per');
@@ -65,7 +64,14 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   if (q) params.set('search', q);
 
   const filters = [];
-  if (year) filters.push(`publication_year:${year}`);
+ 
+// Year range → date filters
+  if (yearMin && yearMax) {
+    const from = `${yearMin.value}-01-01`;
+    const to   = `${yearMax.value}-12-31`;
+    filters.push(`from_publication_date:${from}`, `to_publication_date:${to}`);
+  }
+
   if (sourceType) filters.push(`primary_location.source.type:${sourceType}`);
   if (oa) filters.push('is_oa:true');
   if (hasFulltext) filters.push('has_fulltext:true');
@@ -152,6 +158,56 @@ function renderItem(w) {
   `;
 }
 
+async function initYearBounds() {
+  try {
+    const spOld = new URLSearchParams({ per_page: '1', sort: 'publication_year:asc', select: 'publication_year' });
+    const spNew = new URLSearchParams({ per_page: '1', sort: 'publication_year:desc', select: 'publication_year' });
+    if (API_KEY) { spOld.set('api_key', API_KEY); spNew.set('api_key', API_KEY); }
+
+    const [rOld, rNew] = await Promise.all([
+      fetch(`${API_BASE}?${spOld.toString()}`),
+      fetch(`${API_BASE}?${spNew.toString()}`)
+    ]);
+
+    const yMin = (rOld.ok ? (await rOld.json())?.results?.[0]?.publication_year : null) ?? 1900;
+    const yMax = (rNew.ok ? (await rNew.json())?.results?.[0]?.publication_year : null) ?? new Date().getFullYear();
+
+    yearMin.min = String(yMin);
+    yearMin.max = String(yMax);
+    yearMax.min = String(yMin);
+    yearMax.max = String(yMax);
+
+    // Set defaults to full range
+    yearMin.value = String(yMin);
+    yearMax.value = String(yMax);
+
+    // Show labels
+    yearMinLabel.textContent = yearMin.value;
+    yearMaxLabel.textContent = yearMax.value;
+
+    // Keep From <= To
+    yearMin.addEventListener('input', () => {
+      if (+yearMin.value > +yearMax.value) yearMax.value = yearMin.value;
+      yearMinLabel.textContent = yearMin.value;
+      yearMaxLabel.textContent = yearMax.value;
+    });
+    yearMax.addEventListener('input', () => {
+      if (+yearMax.value < +yearMin.value) yearMin.value = yearMax.value;
+      yearMinLabel.textContent = yearMin.value;
+      yearMaxLabel.textContent = yearMax.value;
+    });
+  } catch (e) {
+    console.warn('initYearBounds()', e);
+    // Fallback if API fails
+    const yMin = 1900;
+    const yMax = new Date().getFullYear();
+    [yearMin.min, yearMin.max, yearMin.value] = [yMin, yMax, yMin].map(String);
+    [yearMax.min, yearMax.max, yearMax.value] = [yMin, yMax, yMax].map(String);
+    yearMinLabel.textContent = yearMin.value;
+    yearMaxLabel.textContent = yearMax.value;
+  }
+}
+
 async function doSearch({ freshPage=false } = {}) {
   if (freshPage) page = 1;
 
@@ -230,7 +286,11 @@ form.addEventListener('submit', (e) => { e.preventDefault(); doSearch({ freshPag
 
 el('clear').addEventListener('click', () => {
   qIn.value = '';
-  yearIn.value = '';
+  
+  yearMin.value = yearMin.min;
+  yearMax.value = yearMax.max;
+  yearMinLabel.textContent = yearMin.value;
+  yearMaxLabel.textContent = yearMax.value;
   sourceTypeIn.value = '';
   perIn.value = '20';
   sortIn.value = 'cited_by_count:desc';
@@ -249,3 +309,9 @@ nextBtn.addEventListener('click', () => { page += 1; doSearch(); } );
 // Starter query (optional)
 qIn.value = 'humanitarian logistics';
 doSearch({ freshPage: true });
+
+(async function boot() {
+  await initYearBounds();        // ← make sure the range is ready
+  qIn.value = 'humanitarian logistics';
+  doSearch({ freshPage: true });
+})();
