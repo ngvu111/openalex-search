@@ -230,16 +230,17 @@ function renderItem(w) {
   const openalexLink = w.id ? `${escapeAttr(w.id)}OpenAlex</a>` : "";
 
   
-  // Normalize DOI to a URL and build a clickable <a> tag
-  
-  const doiHref = w.doi
-  ? (/^https?:\/\//i.test(w.doi) ? w.doi : `https://doi.org/${String(w.doi).replace(/^doi:\s*/i,'')}`)
-  : null;
-
-  const doiText = w.doi ? String(w.doi).replace(/^https?:\/\/doi\.org\//i, 'doi:') : 'DOI';
-  const doiLink = doiHref
-  ? ` • ${toAnchor(doiHref, doiText)}`
+  // DOI
+  const doiLink = w.doi
+  ? ` • ${
+      escapeAttr(
+        /^https?:\/\//i.test(w.doi)
+          ? w.doi
+          : 'https://doi.org/' + String(w.doi).replace(/^doi:\s*/i,'')
+      )
+    }${escapeHTML(String(w.doi).replace(/^https?:\/\/doi\.org\//i, 'doi:'))}</a>`
   : '';
+
 
 
 
