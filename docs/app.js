@@ -227,7 +227,15 @@ function renderItem(w) {
 
   // Links
   const openalexLink = w.id ? `${escapeAttr(w.id)}OpenAlex</a>` : "";
-  const doiLink = w.doi ? ` • ${escapeAttr(w.doi)}</a>` : "";
+  
+  // attribute-safe URL for href
+  const doiHref = w.doi ? escapeAttr(w.doi) : null;
+
+  // link with readable label "DOI"
+  const doiLink = doiHref
+  ? ` • <a href="${doiHref}" target="_blank" rel="noopener">DOI</a>`
+  : "";
+
 
 
   
