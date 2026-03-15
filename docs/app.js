@@ -398,7 +398,7 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     wireHandlers();
     // Starter query (optional)
-    qIn.value = "humanitarian logistics";
+    
     doSearch({ freshPage: true });
   });
 } else {
