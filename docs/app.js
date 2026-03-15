@@ -34,7 +34,7 @@ const journalHelp   = el('journalHelp');
 let selectedJournalIds = new Set();   // values like "https://openalex.org/S123456789"
 
 
-/ Journal filter UI
+// Journal filter UI
 const journalFilter      = el('journalFilter');
 const journalFilterClear = el('journalFilterClear');
 
