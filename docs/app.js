@@ -3,20 +3,17 @@ const API_KEY = (typeof window.OPENALEX_API_KEY === 'string' && window.OPENALEX_
   ? window.OPENALEX_API_KEY.trim()
   : null;
 
-// Elements
+// ---- Elements ----
 const el = (id) => document.getElementById(id);
 const form = el('search-form');
 const qIn = el('q');
 const yearIn = el('year');
-
 const sourceTypeIn = el('sourceType');
 const perIn = el('per');
 const sortIn = el('sort');
-
 const oaIn = el('oa');
 const hasFulltextIn = el('hasFulltext');
 const hasAbstractIn = el('hasAbstract');
-const doiText = el('doi');
 
 const meta = el('meta');
 const results = el('results');
@@ -25,19 +22,21 @@ const prevBtn = el('prev');
 const nextBtn = el('next');
 const pageStatus = el('page-status');
 
-// ---- Elements ----
-const journalFilter      = document.getElementById('journalFilter');
-const journalFilterClear = document.getElementById('journalFilterClear');
-const journalSelect      = document.getElementById('journalSelect');
-const journalHelp        = document.getElementById('journalHelp');
+const journalFilter      = el('journalFilter');
+const journalFilterClear = el('journalFilterClear');
+const journalSelect      = el('journalSelect');
+const journalHelp        = el('journalHelp');
 
-// ---- State you already use or we rely on ----
-let allJournals = [];        // [{ id, name, count }]
+// ---- Global State ----
+let page = 1;
+let allJournals = [];        
 let selectedJournalIds = new Set();
 
-// Guards to ensure we wire only once
 let journalSearchWired = false;
 let journalSelectWired = false;
+let journalFilterTimer = null;
+
+// ===== Journal Selection Logic =====
 
 // Diacritics-insensitive normalization
 function norm(s) {
@@ -47,22 +46,12 @@ function norm(s) {
     .toLowerCase();
 }
 
-// Debounce handle
-let journalFilterTimer = null;
-
-function norm(s) {
-  return String(s || '')
-    .normalize('NFD')                // split diacritics
-    .replace(/[\u0300-\u036f]/g, '') // strip diacritics
-    .toLowerCase();
-}
-
-// NEW — rebuild <option>s based on a (possibly filtered) list + query
+// Rebuild <option>s based on a (possibly filtered) list + query
 function renderJournalOptions(list, query = '') {
   if (!journalSelect) return;
 
   const q = norm(query);
-  const visible = (q.length >= 2)
+  const matches = (q.length >= 2)
     ? list.filter(j => norm(j.name).includes(q))
     : list.slice();
 
@@ -75,11 +64,11 @@ function renderJournalOptions(list, query = '') {
   selectedTop.sort((a, b) => a.name.localeCompare(b.name));
 
   const pinnedIds = new Set(selectedTop.map(j => j.id));
-  const body = visible.filter(j => !pinnedIds.has(j.id));
+  const body = matches.filter(j => !pinnedIds.has(j.id));
 
   const frag = document.createDocumentFragment();
 
-  // Selected pinned first
+  // 1. Selected pinned first
   for (const j of selectedTop) {
     const opt = document.createElement('option');
     opt.value = j.id;
@@ -88,12 +77,20 @@ function renderJournalOptions(list, query = '') {
     frag.appendChild(opt);
   }
 
-  // Rest of matches
+  // Visual divider if we have both pinned and unpinned items
+  if (selectedTop.length > 0 && body.length > 0) {
+    const divider = document.createElement('option');
+    divider.disabled = true;
+    divider.textContent = '──────────';
+    frag.appendChild(divider);
+  }
+
+  // 2. Rest of matches
   for (const j of body) {
     const opt = document.createElement('option');
     opt.value = j.id;
     opt.textContent = `${j.name} (${j.count.toLocaleString()})`;
-    opt.selected = selectedJournalIds.has(j.id);
+    opt.selected = false;
     frag.appendChild(opt);
   }
 
@@ -101,22 +98,20 @@ function renderJournalOptions(list, query = '') {
   journalSelect.appendChild(frag);
 
   // Helper text
-  const shown = selectedTop.length + body.length;
   if (journalHelp) {
+    const shown = selectedTop.length + body.length;
     journalHelp.textContent = q.length >= 2
       ? `Showing ${shown.toLocaleString()} journals matching “${query}”. Selected: ${selectedJournalIds.size}`
       : `${list.length.toLocaleString()} journals for this query. Selected: ${selectedJournalIds.size}`;
   }
 }
 
-// NEW — entrypoint you call after group_by=journal returns
-function populateJournalSelect(list /* [{id,name,count}] */) {
+function populateJournalSelect(list) {
   allJournals = Array.isArray(list) ? list : [];
   const q = journalFilter ? journalFilter.value.trim() : '';
   renderJournalOptions(allJournals, q);
 }
 
-// NEW — one listener on the <select> (works even when options are rebuilt)
 function wireJournalSelect() {
   if (journalSelectWired || !journalSelect) return;
   journalSelectWired = true;
@@ -125,23 +120,21 @@ function wireJournalSelect() {
     selectedJournalIds = new Set(
       Array.from(journalSelect.selectedOptions, o => o.value)
     );
-    // Trigger a fresh query whenever selection changes
-    doSearch({ freshPage: true });
+    // Trigger a fresh query, BUT tell doSearch not to overwrite our journal dropdown
+    doSearch({ freshPage: true, skipJournalFetch: true });
   });
 }
 
-// NEW — input box that filters the visible options
 function wireJournalSearch() {
   if (journalSearchWired) return;
   journalSearchWired = true;
 
   if (journalFilter) {
-    let t;
     journalFilter.addEventListener('input', () => {
-      clearTimeout(t);
-      t = setTimeout(() => {
+      clearTimeout(journalFilterTimer);
+      journalFilterTimer = setTimeout(() => {
         renderJournalOptions(allJournals, journalFilter.value.trim());
-      }, 120); // light debounce
+      }, 120); 
     });
   }
 
@@ -154,23 +147,15 @@ function wireJournalSearch() {
     });
   }
 }
-/* ===== Theme toggle (JS) =====
-   - expects this HTML inside your header:
 
-   <label class="theme-toggle">
-     <input id="themeToggle" type="checkbox" aria-label="Toggle dark mode" />
-     <span class="toggle-slider" aria-hidden="true"></span>
-     <span class="toggle-label">Dark</span>
-   </label>
-*/
+// ===== Theme toggle (JS) =====
 (function initThemeToggle() {
   const root  = document.documentElement;
   const toggle = document.getElementById('themeToggle');
   const label  = document.querySelector('.theme-toggle .toggle-label');
 
-  if (!toggle) return; // toggle not on this page
+  if (!toggle) return;
 
-  // --- helpers ---
   const systemPref = () =>
     window.matchMedia &&
     window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -184,7 +169,6 @@ function wireJournalSearch() {
       toggle.checked = (mode === 'dark');
       if (label) label.textContent = mode === 'dark' ? 'Dark' : 'Light';
     } else {
-      // no user override → follow system
       root.removeAttribute('data-theme');
       localStorage.removeItem('theme');
       const sys = systemPref();
@@ -193,42 +177,32 @@ function wireJournalSearch() {
     }
   };
 
-  // --- initialize from saved value or system ---
-  const saved = localStorage.getItem('theme'); // 'light' | 'dark' | null
+  const saved = localStorage.getItem('theme');
   if (saved === 'light' || saved === 'dark') {
     applyTheme(saved, { persist: false });
   } else {
-    applyTheme(null, { persist: false }); // follow system
+    applyTheme(null, { persist: false });
   }
 
-  // --- user changes ---
   toggle.addEventListener('change', () => {
     const next = toggle.checked ? 'dark' : 'light';
     applyTheme(next, { persist: true });
   });
 
-  // --- system changes (only if no user override) ---
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
   const onSystemChange = () => {
     if (!localStorage.getItem('theme')) applyTheme(null, { persist: false });
   };
   if (mq.addEventListener) mq.addEventListener('change', onSystemChange);
-  else if (mq.addListener) mq.addListener(onSystemChange); // older Safari
-
-  // Optional: expose a small API you can call from Console
-  window.setTheme = applyTheme;  // setTheme('dark'|'light'|null)
+  else if (mq.addListener) mq.addListener(onSystemChange);
+  
+  window.setTheme = applyTheme;
 })();
 
-
 // ===== Rank maps (ISSN-L → grade) =====
-// Keep the names exactly like this (case-sensitive!)
-let jufoMap = null;   // e.g., { "0028-0836": "3",  ... }
-let ajgMap  = null;   // e.g., { "0028-0836": "4*", ... }
+let jufoMap = null;
+let ajgMap  = null;
 
-/**
- * Load /docs/data/ajg.json and /docs/data/jufo.json (optional).
- * Files are optional: helpers below are null-safe and will just return "" if maps aren't present.
- */
 async function loadRankMaps() {
   try {
     const [ajgRes, jufoRes] = await Promise.allSettled([
@@ -238,49 +212,30 @@ async function loadRankMaps() {
 
     if (ajgRes.status === 'fulfilled' && ajgRes.value.ok) {
       ajgMap = await ajgRes.value.json();
-    } else {
-      ajgMap = null;
     }
-
     if (jufoRes.status === 'fulfilled' && jufoRes.value.ok) {
       jufoMap = await jufoRes.value.json();
-    } else {
-      jufoMap = null;
     }
-
-    // Optional: quick visibility in Console
-    console.debug('[AJG] entries:', ajgMap ? Object.keys(ajgMap).length : 0);
-    console.debug('[JUFO] entries:', jufoMap ? Object.keys(jufoMap).length : 0);
-
   } catch (err) {
     console.warn('loadRankMaps() failed:', err);
-    ajgMap = null;
-    jufoMap = null;
   }
 }
 
+// ===== Helpers =====
 function escapeHTML(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
 function escapeAttr(str) {
   return String(str).replace(/["'&<>]/g, (ch) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   })[ch]);
 }
 
 function badge(text, cls = "") {
   return `<span class="badge ${cls}">${escapeHTML(text)}</span>`;
 }
-function pick(val, fallback) {
-  return val !== undefined && val !== null ? val : fallback;
-}
 
-// Reconstruct plaintext abstract from inverted index
 function abstractFromInvertedIndex(obj) {
   if (!obj || typeof obj !== 'object') return null;
   const positions = [];
@@ -288,7 +243,7 @@ function abstractFromInvertedIndex(obj) {
   return positions.join(' ');
 }
 
-// Build URL with filters
+// ===== API Logic =====
 function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page }) {
   const params = new URLSearchParams();
   if (q) params.set('search', q);
@@ -299,6 +254,14 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   if (oa) filters.push('is_oa:true');
   if (hasFulltext) filters.push('has_fulltext:true');
   if (hasAbs) filters.push('has_abstract:true');
+
+  // Apply selected journals filter
+  if (selectedJournalIds.size > 0) {
+    // OpenAlex IDs are URLs (https://openalex.org/S123). We extract the S123 part.
+    const shortIds = Array.from(selectedJournalIds).map(url => url.split('/').pop());
+    filters.push(`primary_location.source.id:${shortIds.join('|')}`);
+  }
+
   if (filters.length) params.set('filter', filters.join(','));
 
   params.set('select', [
@@ -317,79 +280,6 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
   return `${API_BASE}?${params.toString()}`;
 }
 
-/**
- * Render <option>s into #journalSelect from a given list and query string.
- * - Always pins currently selected journals at the top (even if they don't match).
- * - Preserves selection.
- * - Shows "(count)" next to each name.
- */
-function renderJournalOptions(list, query = '') {
-  if (!journalSelect) return;
-
-  const q = norm(query);
-  const matches = q.length >= 2
-    ? list.filter(j => norm(j.name).includes(q))
-    : list.slice(); // no filtering for <2 chars
-
-  // Selected (pin to top, sorted by name)
-  const selectedTop = [];
-  selectedJournalIds.forEach(id => {
-    const j = list.find(x => x.id === id);
-    if (j) selectedTop.push(j);
-  });
-  selectedTop.sort((a,b)=>a.name.localeCompare(b.name));
-
-  // Remove any already pinned from matches
-  const pinnedIds = new Set(selectedTop.map(j => j.id));
-  const body = matches.filter(j => !pinnedIds.has(j.id));
-
-  // Rebuild options
-  const frag = document.createDocumentFragment();
-
-  // Selected pinned section
-  if (selectedTop.length) {
-    for (const j of selectedTop) {
-      const o = document.createElement('option');
-      o.value = j.id;
-      o.textContent = `${j.name} (${j.count.toLocaleString()})`;
-      o.selected = true;
-      frag.appendChild(o);
-    }
-    // Optional visual divider (disabled, non-selectable)
-    const divider = document.createElement('option');
-    divider.disabled = true;
-    divider.textContent = '──────────';
-    frag.appendChild(divider);
-  }
-
-  // Body matches
-  for (const j of body) {
-    const o = document.createElement('option');
-    o.value = j.id;
-    o.textContent = `${j.name} (${j.count.toLocaleString()})`;
-    o.selected = selectedJournalIds.has(j.id);
-    frag.appendChild(o);
-  }
-
-  // Replace content
-  journalSelect.innerHTML = '';
-  journalSelect.appendChild(frag);
-
-  // Update helper text
-  if (journalHelp) {
-    const vis = selectedTop.length + body.length;
-    const msg = q.length >= 2
-      ? `Showing ${vis.toLocaleString()} journals matching “${query}”. Selected: ${selectedJournalIds.size}`
-      : `${list.length.toLocaleString()} journals for this query. Selected: ${selectedJournalIds.size}`;
-    journalHelp.textContent = msg;
-  }
-}
-
-
-/**
- * Get all journals matching the current query using group_by=journal.
- * Returns [{ id, name, count }]
- */
 async function fetchAllJournalsForQuery({ q, year, sourceType, oa, hasFulltext, hasAbs }) {
   const params = new URLSearchParams();
 
@@ -397,14 +287,14 @@ async function fetchAllJournalsForQuery({ q, year, sourceType, oa, hasFulltext, 
 
   const filters = [];
   if (year) filters.push(`publication_year:${year}`);
-  if (sourceType) filters.push(`locations.source.type:${sourceType}`); // e.g., journal/repository/conference [3](https://www.humanitarianlibrary.org/resource/bureau-humanitarian-assistance-technical-guidance-monitoring-evaluation-and-reporting)
+  if (sourceType) filters.push(`locations.source.type:${sourceType}`);
   if (oa) filters.push('is_oa:true');
   if (hasFulltext) filters.push('has_fulltext:true');
   if (hasAbs) filters.push('has_abstract:true');
   if (filters.length) params.set('filter', filters.join(','));
 
-  params.set('group_by', 'journal');     // enumerate journals for the query [1](https://humanitarianencyclopedia.org/library)
-  params.set('per-page', '200');         // fetch many groups per call (hyphen) [4](https://www.ihffc.org/feeds.html)
+  params.set('group_by', 'journal');
+  params.set('per-page', '200');
   if (API_KEY) params.set('api_key', API_KEY);
 
   const out = [];
@@ -420,45 +310,22 @@ async function fetchAllJournalsForQuery({ q, year, sourceType, oa, hasFulltext, 
     const buckets = Array.isArray(g?.group_by) ? g.group_by : [];
     for (const b of buckets) {
       out.push({
-        id:   b?.key,                    // e.g., "https://openalex.org/S123456789"
+        id:   b?.key,
         name: b?.key_display_name || b?.key || 'Unknown journal',
         count: b?.count ?? 0
       });
     }
 
-    if (buckets.length < 200) break;     // finished this aggregation “page”
+    if (buckets.length < 200) break;
     p += 1;
-    if (p > 25) break;                   // safety cap; increase if needed
+    if (p > 25) break; // safety cap
   }
 
-  // Sort by count desc, then name
   out.sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name));
   return out;
 }
 
-
-function populateJournalSelect(list /* [{id,name,count}] */) {
-  allJournals = Array.isArray(list) ? list : [];
-  // Re-render using the current textbox value (if any)
-  const q = journalFilter ? journalFilter.value.trim() : '';
-  renderJournalOptions(allJournals, q);
-}
-``
-
-
-function wireJournalSelect() {
-  if (!journalSelect) return;
-  journalSelect.addEventListener('change', () => {
-    selectedJournalIds = new Set(
-      Array.from(journalSelect.selectedOptions, o => o.value)
-    );
-    // Selections change → restart paging and re-run
-    doSearch({ freshPage: true });
-  });
-}
-
-// --- HTML escaping helper (prevents XSS and broken markup) ---
-
+// ===== Rendering =====
 function venueBadges(issnL) {
   if (!issnL) return '';
   const out = [];
@@ -496,33 +363,22 @@ function renderItem(w) {
     .filter(Boolean)
     .join("");
 
-  // Links
   const openalexLink =  w.id ? 
-` • <a href="${escapeAttr(w.id)}" target="_blank" rel="noopener">OpenAlex</a>`
-  : "";
+    ` • <a href="${escapeAttr(w.id)}" target="_blank" rel="noopener">OpenAlex</a>`
+    : "";
 
+  const doiHref = w.doi
+    ? (/^https?:\/\//i.test(w.doi) ? String(w.doi).trim()
+                                   : 'https://doi.org/' + String(w.doi).replace(/^doi:\s*/i,''))
+    : null;
 
-  
-  // DOI
-  
-  
-const doiHref = w.doi
-  ? (/^https?:\/\//i.test(w.doi) ? String(w.doi).trim()
-                                 : 'https://doi.org/' + String(w.doi).replace(/^doi:\s*/i,''))
-  : null;
+  const doiTextStr = w.doi
+    ? String(w.doi).replace(/^https?:\/\/doi\.org\//i, 'doi:')
+    : 'DOI';
 
-const doiText = w.doi
-  ? String(w.doi).replace(/^https?:\/\/doi\.org\//i, 'doi:')
-  : 'DOI';
-
-const doiLink = doiHref
-  ? ` • <a href="${escapeAttr(doiHref)}" target="_blank" rel="noopener">${escapeHTML(doiText)}</a>`
-  : '';
-
-
-
-
-
+  const doiLink = doiHref
+    ? ` • <a href="${escapeAttr(doiHref)}" target="_blank" rel="noopener">${escapeHTML(doiTextStr)}</a>`
+    : '';
 
   return `
     <article class="item" data-id="${escapeAttr(w.id || '')}">
@@ -542,18 +398,18 @@ const doiLink = doiHref
   `;
 }
 
- 
-async function doSearch({ freshPage = false } = {}) {
+// ===== Main Execution =====
+async function doSearch({ freshPage = false, skipJournalFetch = false } = {}) {
   const q = qIn.value.trim();
   const year = yearIn.value.trim();
-
   const sourceType = sourceTypeIn.value || "";
   const per = Number(perIn.value);
   const sort = sortIn.value;
-
   const oa = oaIn.checked;
   const hasFulltext = hasFulltextIn.checked;
   const hasAbs = hasAbstractIn.checked;
+
+  if (freshPage) page = 1;
 
   if (!q) {
     meta.textContent = "Type a query to search.";
@@ -562,45 +418,36 @@ async function doSearch({ freshPage = false } = {}) {
     return;
   }
 
-  const url = makeURL({
-    q,
-    year,
-    sourceType,
-    per,
-    sort,
-    oa,
-    hasFulltext,
-    hasAbs,
-  });
-
   meta.innerHTML = `Searching<span class="spinner"></span>`;
   results.innerHTML = "";
 
+  // 1. Fetch updated journal groupings (skip if just clicking a journal filter)
+  if (!skipJournalFetch) {
+    try {
+      selectedJournalIds.clear(); // reset filter for a brand new keyword search
+      const journals = await fetchAllJournalsForQuery({
+        q, year, sourceType, oa, hasFulltext, hasAbs
+      });
+      populateJournalSelect(journals);
+    } catch (e) {
+      console.warn('Journal list failed:', e);
+      if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
+      if (journalSelect) journalSelect.innerHTML = '';
+    }
+  }
+
+  // 2. Fetch the actual articles
+  const url = makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page });
+  
   try {
     const r = await fetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-  
-  try {
-  // NEW — fetch journals for the *entire* result set using group_by=journal
-  const journals = await fetchAllJournalsForQuery({
-    q, year, sourceType, oa, hasFulltext, hasAbs
-  });
-  populateJournalSelect(journals);   // NEW — rebuild list from full set
-} catch (e) {
-  console.warn('Journal list failed:', e);
-  if (journalHelp) journalHelp.textContent = 'Unable to fetch journals for this query.';
-  if (journalSelect) journalSelect.innerHTML = '';
-}
-  
-  
-  if (freshPage) page = 1;
 
     const count = data?.meta?.count ?? 0;
     const items = Array.isArray(data?.results) ? data.results : [];
-    meta.textContent = `Found ${count.toLocaleString()} works • Showing ${
-      items.length
-    } on page ${page}`;
+    
+    meta.textContent = `Found ${count.toLocaleString()} works • Showing ${items.length} on page ${page}`;
 
     if (!items.length) {
       results.innerHTML = `<div class="muted">No results.</div>`;
@@ -610,10 +457,8 @@ async function doSearch({ freshPage = false } = {}) {
 
     results.innerHTML = items.map(renderItem).join("");
 
-
     // Lazy abstracts
-    
-results.querySelectorAll("details[data-abs]").forEach((det) => {
+    results.querySelectorAll("details[data-abs]").forEach((det) => {
       det.addEventListener(
         "toggle",
         async () => {
@@ -625,23 +470,22 @@ results.querySelectorAll("details[data-abs]").forEach((det) => {
 
           const sp = new URLSearchParams({ select: "abstract_inverted_index" });
           if (API_KEY) sp.set("api_key", API_KEY);
-          const rr = await fetch(
-            `${API_BASE}/${encodeURIComponent(workId)}?${sp.toString()}`
-          );
-          if (!rr.ok) {
-            box.textContent = "No abstract available.";
-            return;
+          try {
+            const rr = await fetch(`${API_BASE}/${encodeURIComponent(workId)}?${sp.toString()}`);
+            if (!rr.ok) {
+              box.textContent = "No abstract available.";
+              return;
+            }
+            const wfull = await rr.json();
+            const abs = abstractFromInvertedIndex(wfull.abstract_inverted_index) || "No abstract available.";
+            box.textContent = abs;
+          } catch(err) {
+            box.textContent = "Error fetching abstract.";
           }
-          const wfull = await rr.json();
-          const abs =
-            abstractFromInvertedIndex(wfull.abstract_inverted_index) ||
-            "No abstract available.";
-          box.textContent = abs;
         },
         { once: true }
       );
     });
-
 
     // Pager
     const totalPages = Math.ceil(count / per);
@@ -649,6 +493,7 @@ results.querySelectorAll("details[data-abs]").forEach((det) => {
     prevBtn.disabled = page <= 1;
     nextBtn.disabled = page >= totalPages;
     pager.classList.toggle('hidden', totalPages <= 1);
+
   } catch (e) {
     console.error(e);
     meta.textContent = `Error: ${e.message}`;
@@ -656,15 +501,12 @@ results.querySelectorAll("details[data-abs]").forEach((det) => {
   }
 }
 
-
 function wireHandlers() {
-  if (!form) {
-    console.error("search-form not found; ensure scripts use defer or run after DOM.");
-    return;
-  }
+  if (!form) return;
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    doSearch({ freshPage: true });
+    doSearch({ freshPage: true, skipJournalFetch: false });
   });
 
   const clearBtn = el("clear");
@@ -678,6 +520,10 @@ function wireHandlers() {
       oaIn.checked = false;
       hasFulltextIn.checked = false;
       hasAbstractIn.checked = false;
+      
+      selectedJournalIds.clear();
+      if (journalFilter) journalFilter.value = "";
+      populateJournalSelect([]);
 
       results.innerHTML = "";
       meta.textContent = "";
@@ -688,56 +534,28 @@ function wireHandlers() {
   prevBtn.addEventListener("click", () => {
     if (page > 1) {
       page -= 1;
-      doSearch();
+      // When paginating, we skip fetching the journal list so the dropdown stays intact
+      doSearch({ skipJournalFetch: true }); 
     }
   });
+  
   nextBtn.addEventListener("click", () => {
     page += 1;
-    doSearch();
+    doSearch({ skipJournalFetch: true });
   });
 }
 
-// If scripts aren’t loaded with defer, wait for DOM
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    wireHandlers();
-    // Starter query (optional)
-    
-    doSearch({ freshPage: true });
-  });
-} else {
+// ===== Initialization =====
+function init() {
   wireHandlers();
-  
-  doSearch({ freshPage: true });
-
   wireJournalSelect();
   wireJournalSearch();
-
-  let journalSearchWired = false;
-
-function wireJournalSearch() {
-  if (journalSearchWired) return;
-  journalSearchWired = true;
-
-  if (journalFilter) {
-    journalFilter.addEventListener('input', () => {
-      if (journalFilterTimer) clearTimeout(journalFilterTimer);
-      journalFilterTimer = setTimeout(() => {
-        renderJournalOptions(allJournals, journalFilter.value.trim());
-      }, 120); // debounce
-    });
-  }
-
-  if (journalFilterClear) {
-    journalFilterClear.addEventListener('click', () => {
-      if (!journalFilter) return;
-      journalFilter.value = '';
-      renderJournalOptions(allJournals, '');
-      journalFilter.focus();
-    });
-
-// KEEP (context): after you render items & pager in doSearch()
-
-  }
+  loadRankMaps(); // Optional: load AJG/JUFO ranks
+  doSearch({ freshPage: true });
 }
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
 }
