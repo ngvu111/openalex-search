@@ -246,7 +246,11 @@ function abstractFromInvertedIndex(obj) {
 // ===== API Logic =====
 function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page }) {
   const params = new URLSearchParams();
-  if (q) params.set('search', q);
+  // Wrap the query in quotes for an exact match
+  if (q) {
+    const exactQuery = `"${q.replace(/"/g, '')}"`;
+    params.set('search', exactQuery);
+  }
 
   const filters = [];
   if (year) filters.push(`publication_year:${year}`);
@@ -283,6 +287,13 @@ function makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page
 async function fetchAllJournalsForQuery({ q, year, sourceType, oa, hasFulltext, hasAbs }) {
   const params = new URLSearchParams();
 
+  // Wrap the query in quotes for an exact match
+  if (q) {
+    const exactQuery = `"${q.replace(/"/g, '')}"`;
+    params.set('search', exactQuery);
+  }
+
+  const filters = [];
   if (q) params.set('search', q);
 
   const filters = [];
@@ -440,6 +451,7 @@ async function doSearch({ freshPage = false, skipJournalFetch = false } = {}) {
   const url = makeURL({ q, year, sourceType, per, sort, oa, hasFulltext, hasAbs, page });
   
   try {
+    
     const r = await fetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
